@@ -286,6 +286,17 @@ const PlayersPage = () => {
             <label htmlFor="showDead" className="text-sm font-medium text-slate-300">Include KIA Players</label>
           </div>
 
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="showTrackedOnly"
+              checked={showTrackedOnly}
+              onChange={(e) => setShowTrackedOnly(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="showTrackedOnly" className="text-sm font-medium text-slate-300">Tracked Players Only</label>
+          </div>
+
           {/* Detective Controls */}
           {selectedPlayers.size > 0 && (
             <div className="p-4 rounded-lg bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-500/30">
