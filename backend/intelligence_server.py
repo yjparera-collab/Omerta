@@ -24,7 +24,7 @@ db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
-def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):
     # Startup
     asyncio.create_task(intelligence_monitor())
     print("[START] FastAPI Intelligence Dashboard started")
