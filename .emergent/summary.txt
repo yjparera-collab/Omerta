@@ -1,0 +1,98 @@
+<analysis>
+The trajectory details the AI engineer's work on the Omerta War Intelligence Dashboard, primarily focusing on data display accuracy and real-time updates. Initially, the engineer resolved a frontend sorting bug for the Rank column in . Subsequently, the user reported issues with Plating showing unknown and Kills, Shots, Wealth displaying N/A. This led to a deep dive into the scraping service's data caching and API response handling.
+
+Key challenges identified were the  often missing in detailed player API responses, preventing data from being correctly cached, and a  wrapper in API payloads that caused parsing issues. The engineer implemented fixes for  mapping, data unwrapping, and a real-time WebSocket push mechanism. A critical environmental bug with  having a trailing space in Windows  startup scripts also required resolution.
+
+The work culminated in a significant refactor to switch the primary key for tracking and detail retrieval from  to  across the entire stack, as requested by the user, impacting the scraping service, backend API, and frontend components. This involved creating new endpoints and updating data fetching/caching logic.
+</analysis>
+
+<product_requirements>
+The goal is to build an Omerta War Intelligence Dashboard for real-time tactical intelligence using Barafranca.com API data. It needs to detect combat actions and analyze targets. Key backend features include an Analyst for broad monitoring (plating drops), a Detective Agency for deep scans (kills/bullets, public profiles) on ~100 targets, Cloudflare bypass (), MongoDB for caching, and WebSockets for real-time updates. The frontend (The Dashboard) needs a Player Dashboard () with client-side filters (name, family, rank, dead players), custom sorting (Position, Rank, Kills, Shots, Wealth, Plating), and a Target Configuration Center () to manage  and operations.
+
+So far, a hybrid FastAPI, Flask (scraping), React stack with MongoDB and  is established. Basic UI, MongoDB, scraping, and Cloudflare bypass are implemented. Wealth/Plating columns, Tracked Players Only filter, and UI improvements are added. Automated Windows startup scripts exist.
+
+**Recent Issues and Resolutions:**
+1.  **Rank Column Sorting:** User reported incorrect sorting logic for the Rank column. Fixed to sort 1...N then 0 (unranked) ascending, and 0 then N...1 descending, with username as a tiebreaker.
+2.  **Missing/Incorrect Player Details:** User reported Plating as unknown and Wealth, Kills, Bullets Shot as N/A for tracked players.
+    *   **Root Cause:** The per-username detail API often lacks , preventing the scraper from caching detailed player data. Additionally, a wrapper  was not consistently unwrapped.
+    *   **Fixes:** Implemented  to  mapping in the scraper, ensured consistent unwrapping of the  payload, removed false defaults (0/Unknown) for missing data, and added a real-time WebSocket push from scraper to backend to frontend on cache updates.
+3.  **Environment Issue:** A  due to a trailing space in  in Windows  startup scripts.
+    *   **Fix:** Modified  to safely set environment variables using quotes () and prevent trailing spaces.
+4.  **Primary Key Shift:** User explicitly requested to switch from  to  as the primary key for tracking and detail retrieval across the entire application stack.  can remain in responses but should be ignored by the UI.
+</product_requirements>
+
+<key_technical_concepts>
+-   **Python**: FastAPI (backend), Flask (scraping), Selenium (), PyMongo/Motor (MongoDB driver).
+-   **JavaScript/React**: Frontend UI, , .
+-   **MongoDB**: Primary database for data persistence and caching.
+-   **WebSockets**: Real-time frontend updates (player_list_updated, detective_targets_updated).
+-   **Cloudflare Bypass**:  for web scraping.
+-   **Windows Batch Scripting**:  for environment setup and service startup.
+</key_technical_concepts>
+
+<code_architecture>
+
+
+**Key Files and Changes:**
+-   ****:
+    -   **Summary**: Main FastAPI application handling API requests and WebSocket communication.
+    -   **Changes**:
+        -   Added a new internal endpoint  to receive notifications from the scraping service and broadcast  via WebSocket.
+        -   Added a new proxy endpoint  to forward username-based detail requests to the scraping service.
+-   ****:
+    -   **Summary**: The primary Flask-based scraping service for Windows, using  to fetch data from Barafranca.com. Handles caching into MongoDB.
+    -   **Changes**:
+        -   ****: Modified to primarily use  as the key for caching player details, falling back to  if available.
+        -   **Detail Worker ()**:
+            -   Implemented logic to unwrap the  wrapper from Barafranca API responses.
+            -   If  is missing in the API response, it attempts to resolve  from a  to uid=0(root) gid=0(root) groups=0(root) mapping (derived from the general player list or cache) before caching.
+            -   After successfully caching updated detail, it sends a  request to the backend's  endpoint for real-time updates.
+        -   **List Worker ()**: Improved parsing to correctly handle the  wrapper for the general users list, ensuring player data is properly extracted and cached with  and .
+        -   ** endpoint**: Modified to retrieve data based on  and to provide actual cached values for kills, shots, wealth, and plating, instead of false / defaults.  is kept but marked for UI to ignore.
+        -   **New Endpoint**: Introduced  to fetch player details directly by .
+-   ****:
+    -   **Summary**: React component responsible for displaying the player table, including filtering, sorting, and rendering player statistics.
+    -   **Changes**:
+        -   **Rank Sorting**: Corrected logic for the Rank column to sort  then unranked () ascending, and unranked () then  descending, with  as a tie-breaker.
+        -   **Data Display**: Updated  to correctly unwrap  from the API response and map numeric  values to labels.
+        -   Adapted to use -keyed detail cache and .
+-   ****:
+    -   **Summary**: Custom React hook for fetching and managing intelligence data from the backend, including player lists, tracked players, and WebSocket updates.
+    -   **Changes**:
+        -   Added  function to fetch player details using .
+        -   Modified  WebSocket event handler to trigger  and  for real-time UI updates.
+        -   Updated data fetching logic to prioritize  for detail retrieval.
+-   ****:
+    -   **Summary**: Windows batch script for one-click startup of the backend and scraping services.
+    -   **Changes**: Modified to use  with quotes when setting environment variables (, , ) to prevent trailing spaces, which caused MongoDB connection errors. Also included Using MONGO_URL=[!MONGO_URL!] for debugging.
+-   ****:
+    -   **Summary**: Script to test MongoDB connection. (No direct changes in trajectory, but used for debugging).
+</code_architecture>
+
+<pending_tasks>
+-   The last action was to implement a full refactor to use  as the primary key for tracking and detail retrieval, across the scraping service, backend, and frontend. This change has been applied.
+-   Verify the -first logic: ensure that tracked players' details (kills, shots, wealth, plating) are correctly displayed in the UI, fetched by username, and that  is ignored.
+</pending_tasks>
+
+<current_work>
+Immediately prior to this summary, the AI engineer completed a significant refactor to switch the primary identifier for player tracking and detail retrieval from  to . This was a direct request from the user (Ik kwil dus dat alle informatie die gescraped word per user en als die in de tracker komt bij de frontend, dat alles word gecommuniceerd en aangevraagd word op Username ipv id). The user also clarified that  can remain in API responses but should be ignored by the UI.
+
+The changes span the entire application stack:
+1.  **Scraping Service ():**
+    *   A new endpoint  was created to retrieve player details based on their .
+    *   The  endpoint now constructs its response using -based cached data.
+    *   The  function was updated to primarily use  as the key for storing and retrieving player details, effectively handling cases where the Barafranca API doesn't provide a .
+    *   Existing logic for unwrapping API  wrappers and  resolution in list and detail workers was retained and adapted to the -first approach.
+2.  **Backend ():**
+    *   A new proxy endpoint  was added to forward frontend requests to the corresponding scraping service endpoint.
+3.  **Frontend ( and ):**
+    *   A new function  was introduced in .
+    *    was modified to use  as the key for its detail cache and to fetch player details using .
+    *   The  logic was adjusted to ensure kills, shots, wealth, and plating are retrieved and displayed correctly based on the -keyed details, still handling the  wrapper as needed.
+
+The  script was previously fixed to address MongoDB connection issues, and its environment variable handling is now robust. The current state is that these -first changes have been applied, and the AI engineer is awaiting user verification of the new behavior, or is ready to initiate automated UI tests.
+</current_work>
+
+<optional_next_step>
+Run automated UI tests to confirm that tracked player details (Kills, Shots, Wealth, Plating) are correctly displayed and fetched by  in the Players table.
+</optional_next_step>

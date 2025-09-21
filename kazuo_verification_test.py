@@ -12,7 +12,7 @@ from datetime import datetime
 
 class KazuoVerificationTester:
     def __init__(self):
-        self.base_url = "https://intel-dash-2.preview.emergentagent.com"
+        self.base_url = "https://omerta-intel.preview.emergentagent.com"
         self.api_base = f"{self.base_url}/api"
         self.kazuo_player_id = None
         self.test_results = []
