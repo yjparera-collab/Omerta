@@ -40,7 +40,7 @@ Write-Host ""
 
 Write-Host "[5/5] Starting Frontend..." -ForegroundColor Cyan
 Start-Sleep 5
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\frontend'; yarn start" -WindowStyle Normal
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\frontend'; npm start" -WindowStyle Normal
 Write-Host "✓ Frontend starting on port 3000" -ForegroundColor Green
 Write-Host ""
 
