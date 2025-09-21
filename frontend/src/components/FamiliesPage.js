@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useIntelligence } from '../hooks/useIntelligence';
 
 const FamiliesPage = () => {
-  const { players, targetFamilies, setFamilyTargets, getPlayerDetails } = useIntelligence();
+  const { players, targetFamilies, setFamilyTargets, getPlayerDetails, trackedPlayers } = useIntelligence();
   const [selectedFamilies, setSelectedFamilies] = useState(new Set(targetFamilies));
   const [expandedFamilies, setExpandedFamilies] = useState(new Set());
   const [detectiveTargets, setDetectiveTargets] = useState([]);
