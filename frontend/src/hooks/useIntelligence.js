@@ -163,6 +163,15 @@ export const IntelligenceProvider = ({ children }) => {
     }
   }, [apiCall]);
 
+  const fetchTargetFamilies = useCallback(async () => {
+    try {
+      const data = await apiCall('/families/targets');
+      setTargetFamilies(data.families || []);
+    } catch (error) {
+      console.error('Failed to fetch target families:', error);
+    }
+  }, [apiCall]);
+
   const fetchTrackedPlayers = useCallback(async () => {
     try {
       const data = await apiCall('/intelligence/tracked-players');
