@@ -202,11 +202,14 @@ export const IntelligenceProvider = ({ children }) => {
         body: JSON.stringify({ usernames }),
       });
       setDetectiveTargets(prev => [...new Set([...prev, ...usernames])]);
+      
+      // Refresh tracked players after adding
+      fetchTrackedPlayers();
     } catch (error) {
       console.error('Failed to add detective targets:', error);
       throw error;
     }
-  }, [apiCall]);
+  }, [apiCall, fetchTrackedPlayers]);
 
   const getPlayerDetails = useCallback(async (playerId) => {
     try {
