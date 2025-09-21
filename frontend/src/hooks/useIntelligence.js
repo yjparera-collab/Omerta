@@ -43,7 +43,6 @@ export const IntelligenceProvider = ({ children }) => {
         websocket.onclose = () => {
           console.log('🔌 WebSocket disconnected, attempting to reconnect...');
           setSystemStatus(prev => ({ ...prev, connected: false }));
-          // Reconnect after 5 seconds
           setTimeout(connectWebSocket, 5000);
         };
 
@@ -53,7 +52,6 @@ export const IntelligenceProvider = ({ children }) => {
 
         setWs(websocket);
 
-        // Send ping every 30 seconds to keep connection alive
         const pingInterval = setInterval(() => {
           if (websocket.readyState === WebSocket.OPEN) {
             websocket.send(JSON.stringify({ type: 'ping' }));
@@ -77,15 +75,13 @@ export const IntelligenceProvider = ({ children }) => {
   const handleWebSocketMessage = useCallback((message) => {
     switch (message.type) {
       case 'intelligence_notification':
-        setNotifications(prev => [message.data, ...prev.slice(0, 49)]); // Keep last 50
+        setNotifications(prev => [message.data, ...prev.slice(0, 49)]);
         break;
-      
       case 'player_list_updated':
         setLastUpdate(new Date().toISOString());
-        fetchPlayers(); // Refresh player list
-        fetchTrackedPlayers(); // Also refresh tracked stats for realtime kills/shots/wealth
+        fetchPlayers();
+        fetchTrackedPlayers();
         break;
-      
       case 'intelligence_update':
         if (message.data.notifications) {
           setNotifications(prev => {
@@ -99,16 +95,12 @@ export const IntelligenceProvider = ({ children }) => {
           });
         }
         break;
-      
       case 'detective_targets_updated':
       case 'family_targets_updated':
-        fetchSystemStatus(); // Refresh status
+        fetchSystemStatus();
         break;
-      
       case 'pong':
-        // Connection is alive
         break;
-      
       default:
         console.log('Unknown WebSocket message:', message);
     }
@@ -124,11 +116,9 @@ export const IntelligenceProvider = ({ children }) => {
         },
         ...options,
       });
-      
       if (!response.ok) {
         throw new Error(`API call failed: ${response.statusText}`);
       }
-      
       return await response.json();
     } catch (error) {
       console.error(`API call to ${endpoint} failed:`, error);
@@ -203,8 +193,6 @@ export const IntelligenceProvider = ({ children }) => {
         body: JSON.stringify({ usernames }),
       });
       setDetectiveTargets(prev => [...new Set([...prev, ...usernames])]);
-      
-      // Refresh tracked players after adding
       fetchTrackedPlayers();
     } catch (error) {
       console.error('Failed to add detective targets:', error);
@@ -217,6 +205,15 @@ export const IntelligenceProvider = ({ children }) => {
       return await apiCall(`/players/${playerId}`);
     } catch (error) {
       console.error(`Failed to get player ${playerId} details:`, error);
+      return null;
+    }
+  }, [apiCall]);
+
+  const getPlayerDetailsByUsername = useCallback(async (username) => {
+    try {
+      return await apiCall(`/players/by-username/${encodeURIComponent(username)}`);
+    } catch (error) {
+      console.error(`Failed to get player by username ${username}:`, error);
       return null;
     }
   }, [apiCall]);
@@ -237,7 +234,6 @@ export const IntelligenceProvider = ({ children }) => {
   }, [fetchPlayers]);
 
   const value = {
-    // Data
     players,
     notifications,
     systemStatus,
@@ -245,14 +241,11 @@ export const IntelligenceProvider = ({ children }) => {
     detectiveTargets,
     trackedPlayers,
     lastUpdate,
-    
-    // Actions
     fetchPlayers,
     setFamilyTargets,
     addDetectiveTargets,
     getPlayerDetails,
-    
-    // WebSocket
+    getPlayerDetailsByUsername,
     isConnected: systemStatus.connected,
   };
 

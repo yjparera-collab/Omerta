@@ -31,6 +31,7 @@ USER_DETAIL_URL_TEMPLATE = "https://barafranca.com/index.php?module=API&action=u
 MAIN_LIST_INTERVAL = 30
 
 # -------------------- MONGO --------------------
+
 def init_mongodb():
     mongo_url = os.environ.get('MONGO_URL', 'mongodb://127.0.0.1:27017')
     client = MongoClient(mongo_url)
@@ -42,12 +43,14 @@ def init_mongodb():
         db.detective_targets.create_index("username", unique=True)
         db.detective_targets.create_index("is_active")
         db.player_cache.create_index("user_id", unique=True)
+        db.player_cache.create_index("username")
         db.intelligence_notifications.create_index("timestamp")
     except Exception as e:
         print(f"[DB] Index warning: {e}")
     return db
 
 # -------------------- DATA MANAGER --------------------
+
 class IntelligenceDataManager:
     def __init__(self):
         self.db = init_mongodb()
@@ -105,13 +108,17 @@ class IntelligenceDataManager:
     def cache_player_data(self, user_id: str, username: str, data: dict):
         try:
             doc = {
-                "user_id": str(user_id),
+                "user_id": str(user_id) if user_id is not None else None,
                 "username": username or f"Player_{user_id}",
                 "data": json.dumps(data, default=str),
                 "last_updated": datetime.utcnow(),
                 "priority": 1,
             }
-            self.db.player_cache.update_one({"user_id": str(user_id)}, {"$set": doc}, upsert=True)
+            # Upsert by username primarily to support username-based flow
+            self.db.player_cache.update_one({"username": doc["username"]}, {"$set": doc}, upsert=True)
+            # Also update by user_id if available
+            if user_id is not None:
+                self.db.player_cache.update_one({"user_id": str(user_id)}, {"$set": doc}, upsert=True)
             return True
         except Exception as e:
             print(f"[CACHE] Error for {username} ({user_id}): {e}")
@@ -123,18 +130,18 @@ class IntelligenceDataManager:
             data = payload or {"source": "scraper", "timestamp": datetime.utcnow().isoformat()}
             requests.post(f"{backend_url}/api/internal/list-updated", json=data, timeout=2)
         except Exception as e:
-            # Backend mogelijk elders; dit mag scraper niet blokkeren
             if 'ConnectionRefusedError' not in str(e):
                 print(f"[NOTIFY] Backend notify failed: {e}")
 
     def get_detective_targets(self):
-        """Return detective targets with real values if cached; no fake defaults"""
+        """Return detective targets with real values if cached; username is the key"""
         try:
             targets = list(self.db.detective_targets.find({"is_active": True}))
             result = []
             for t in targets:
                 rec = {
                     "username": t['username'],
+                    # player_id may exist historically; include but UI can ignore
                     "player_id": t.get('player_id', ''),
                     "added_timestamp": t.get('added_timestamp')
                 }
@@ -165,6 +172,7 @@ class IntelligenceDataManager:
             return []
 
 # -------------------- BROWSER --------------------
+
 def create_browser():
     print("[BROWSER] Setting up visible Chrome (undetected)")
     options = uc.ChromeOptions()
@@ -187,6 +195,7 @@ def create_browser():
     return driver
 
 # -------------------- CLOUDFLARE HELPER --------------------
+
 def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
     print(f"[{worker_name}] Navigating to: {url}")
     try:
@@ -215,6 +224,7 @@ def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
         return False
 
 # -------------------- FLASK --------------------
+
 app = Flask(__name__)
 DM = IntelligenceDataManager()
 PQ = PriorityQueue()
@@ -283,6 +293,21 @@ def get_player(player_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/scraping/player-username/<username>')
+def get_player_by_username(username):
+    try:
+        d = DM.db.player_cache.find_one({"username": username}, {"_id": 0})
+        if not d:
+            return jsonify({"error": "Player not found"}), 404
+        raw = d.get('data')
+        raw = json.loads(raw) if isinstance(raw, str) else raw
+        inner = raw.get('data', raw) if isinstance(raw, dict) else raw
+        if not isinstance(inner, dict):
+            return jsonify({"error": "Invalid player data"}), 500
+        return jsonify(inner)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/scraping/detective/targets')
 def get_targets():
     try:
@@ -308,6 +333,7 @@ def add_targets():
         return jsonify({"error": str(e)}), 500
 
 # -------------------- WORKERS --------------------
+
 def list_worker(driver: uc.Chrome):
     while True:
         try:
@@ -355,7 +381,6 @@ def list_worker(driver: uc.Chrome):
                         continue
                     uid = user.get('user_id') or user.get('id') or user.get('player_id')
                     if uid is None:
-                        # some list entries use different keys; try best-effort
                         uid = user.get('Id') or user.get('UserId')
                     uname = user.get('uname') or user.get('username') or user.get('name')
                     rank_name = user.get('rank_name') or user.get('rank')
@@ -363,10 +388,10 @@ def list_worker(driver: uc.Chrome):
                     status_v = user.get('status')
                     position = user.get('position')
                     plating = user.get('plating')
-                    if uid and uname:
+                    if uname:  # cache even if uid missing, for username-based flow
                         normalized = {
-                            "id": str(uid),
-                            "user_id": str(uid),
+                            "id": str(uid) if uid is not None else None,
+                            "user_id": str(uid) if uid is not None else None,
                             "uname": uname,
                             "rank_name": rank_name,
                             "f_name": f_name,
@@ -374,7 +399,7 @@ def list_worker(driver: uc.Chrome):
                             "position": position,
                             "plating": plating,
                         }
-                        if DM.cache_player_data(str(uid), uname, normalized):
+                        if self_safe_cache_player(DM, uid, uname, normalized):
                             cached += 1
                             normalized_list.append(normalized)
                     else:
@@ -407,17 +432,18 @@ def detail_worker(driver: uc.Chrome):
                             if isinstance(user_data, dict):
                                 inner = user_data.get('data', user_data)
                                 uid = user_data.get('user_id') or inner.get('user_id')
-                                if not uid:
-                                    uid = DM.get_user_id_by_username(username)
-                                    if uid:
-                                        inner['user_id'] = uid
+                                # username-based cache even without uid
+                                cached_ok = False
                                 if uid:
-                                    if DM.cache_player_data(str(uid), username, inner):
-                                        print(f"[DETAIL_WORKER] ✅ Updated data for {username} (id={uid})")
-                                        DM.notify_backend_list_updated({"username": username, "user_id": str(uid)})
+                                    cached_ok = DM.cache_player_data(str(uid), username, inner)
                                 else:
-                                    print(f"[DETAIL_WORKER] ⚠️ No user_id for {username} - cached detail skipped")
-                    # be polite
+                                    cached_ok = DM.cache_player_data(None, username, inner)
+                                if cached_ok:
+                                    msg_id = f"id={uid}" if uid else "id=none(username-keyed)"
+                                    print(f"[DETAIL_WORKER] ✅ Updated data for {username} ({msg_id})")
+                                    DM.notify_backend_list_updated({"username": username, "user_id": str(uid) if uid else None})
+                                else:
+                                    print(f"[DETAIL_WORKER] ❌ Cache failed for {username}")
                     time.sleep(random.uniform(3, 6))
                 except Exception as e:
                     print(f"[DETAIL_WORKER] ❌ Error processing {username}: {e}")
@@ -427,11 +453,11 @@ def detail_worker(driver: uc.Chrome):
         time.sleep(90)
 
 # -------------------- MAIN --------------------
+
 if __name__ == '__main__':
     driver = None
     try:
         print("\n[SETUP] Starting MongoDB Omerta Scraping Service (Windows Visible Browser)…")
-        # Start Flask in a thread
         svr = threading.Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5001, host='127.0.0.1'))
         svr.daemon = True
         svr.start()
@@ -463,6 +489,7 @@ if __name__ == '__main__':
         print("[SECURE] Browser closed")
 
 # -------------------- HELPERS --------------------
+
 def _to_int(v):
     try:
         return int(v)
@@ -471,3 +498,11 @@ def _to_int(v):
             return int(float(v))
         except Exception:
             return None
+
+
+def self_safe_cache_player(dm: IntelligenceDataManager, uid, uname, payload):
+    try:
+        return dm.cache_player_data(uid if uid is not None else None, uname, payload)
+    except Exception as e:
+        print(f"[CACHE] fail for {uname}: {e}")
+        return False

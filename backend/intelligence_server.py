@@ -24,7 +24,7 @@ db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+def lifespan(app: FastAPI):
     # Startup
     asyncio.create_task(intelligence_monitor())
     print("[START] FastAPI Intelligence Dashboard started")
@@ -79,8 +79,6 @@ class ConnectionManager:
                     await connection.send_json(message)
                 except:
                     disconnected.append(connection)
-            
-            # Remove disconnected clients
             for conn in disconnected:
                 self.disconnect(conn)
 
@@ -137,7 +135,6 @@ async def root():
 
 @api_router.get("/players")
 async def get_all_players():
-    """Get all players from scraping service"""
     result = await call_scraping_service("/api/scraping/players")
     if "error" in result:
         raise HTTPException(status_code=503, detail="Scraping service unavailable")
@@ -145,43 +142,41 @@ async def get_all_players():
 
 @api_router.get("/players/{player_id}")
 async def get_player_details(player_id: str):
-    """Get detailed player information"""
     result = await call_scraping_service(f"/api/scraping/player/{player_id}")
+    if "error" in result:
+        raise HTTPException(status_code=404, detail="Player data not found")
+    return result
+
+@api_router.get("/players/by-username/{username}")
+async def get_player_details_by_username(username: str):
+    result = await call_scraping_service(f"/api/scraping/player-username/{username}")
     if "error" in result:
         raise HTTPException(status_code=404, detail="Player data not found")
     return result
 
 @api_router.get("/intelligence/notifications")
 async def get_notifications():
-    """Get recent intelligence notifications"""
     result = await call_scraping_service("/api/scraping/notifications")
     return result
 
 @api_router.get("/intelligence/tracked-players")
 async def get_tracked_players():
-    """Get all tracked players with their intelligence data"""
     try:
-        # This would normally come from your scraping service
-        # For now, let's return mock data that matches the detective targets
         result = await call_scraping_service("/api/scraping/detective/targets")
         if "error" not in result:
             return {"tracked_players": result.get("tracked_players", [])}
-        
-        # Fallback: get from MongoDB if we have stored tracked players
         tracked = await db.tracked_players.find({"is_active": True}).to_list(length=100)
         tracked_players = []
-        
         for player in tracked:
             tracked_players.append({
-                "player_id": player.get("player_id"),
+                "player_id": player.get("player_id"),  # may be present but ignored
                 "username": player.get("username"),
                 "priority": player.get("priority", 1),
-                "kills": player.get("kills", 0),
-                "shots": player.get("shots", 0),
-                "wealth_level": player.get("wealth_level", 0),
-                "plating": player.get("plating", "Unknown")
+                "kills": player.get("kills"),
+                "shots": player.get("shots"),
+                "wealth": player.get("wealth"),
+                "plating": player.get("plating"),
             })
-        
         return {"tracked_players": tracked_players}
     except Exception as e:
         print(f"Error getting tracked players: {e}")
@@ -189,10 +184,7 @@ async def get_tracked_players():
 
 @api_router.post("/intelligence/detective/add")
 async def add_detective_targets(targets: DetectiveTargets):
-    """Add players to detective tracking"""
     result = await call_scraping_service("/api/scraping/detective/add", "POST", {"usernames": targets.usernames})
-    
-    # Broadcast update to connected clients
     await manager.broadcast({
         "type": "detective_targets_updated",
         "data": {
@@ -200,22 +192,16 @@ async def add_detective_targets(targets: DetectiveTargets):
             "timestamp": datetime.now().isoformat()
         }
     })
-    
     return result
 
 @api_router.post("/families/set-targets")
 async def set_family_targets(targets: FamilyTargets):
-    """Set target families for tracking"""
     result = await call_scraping_service("/api/scraping/families/set", "POST", {"families": targets.families})
-    
-    # Save to MongoDB for persistence
     await db.app_settings.update_one(
         {"setting_type": "family_targets"},
         {"$set": {"families": targets.families, "updated_at": datetime.now()}},
         upsert=True
     )
-    
-    # Broadcast update
     await manager.broadcast({
         "type": "family_targets_updated",
         "data": {
@@ -223,12 +209,10 @@ async def set_family_targets(targets: FamilyTargets):
             "timestamp": datetime.now().isoformat()
         }
     })
-    
     return result
 
 @api_router.get("/families/targets")
 async def get_family_targets():
-    """Get current family targets"""
     settings = await db.app_settings.find_one({"setting_type": "family_targets"})
     if settings:
         return {"families": settings.get("families", [])}
@@ -236,15 +220,11 @@ async def get_family_targets():
 
 @api_router.get("/status")
 async def get_system_status():
-    """Get system-wide status"""
     scraping_status = await call_scraping_service("/api/scraping/status")
-    
-    # Get MongoDB stats
     mongo_stats = {
         "connected": True,
         "preferences_count": await db.user_preferences.count_documents({})
     }
-    
     return {
         "scraping_service": scraping_status,
         "database": mongo_stats,
@@ -254,7 +234,6 @@ async def get_system_status():
 
 @api_router.post("/preferences")
 async def save_user_preferences(preferences: UserPreferences):
-    """Save user preferences"""
     await db.user_preferences.update_one(
         {"user_id": preferences.user_id},
         {"$set": preferences.dict()},
@@ -264,18 +243,14 @@ async def save_user_preferences(preferences: UserPreferences):
 
 @api_router.get("/preferences/{user_id}")
 async def get_user_preferences(user_id: str):
-    """Get user preferences"""
     prefs = await db.user_preferences.find_one({"user_id": user_id})
     if prefs:
         return UserPreferences(**prefs)
     else:
-        # Return default preferences
         return UserPreferences(user_id=user_id)
 
-# Internal endpoint for scraping service communication
 @api_router.post("/internal/list-updated")
 async def handle_list_update(update_data: dict):
-    """Handle player list update from scraping service"""
     await manager.broadcast({
         "type": "player_list_updated",
         "data": update_data
@@ -284,7 +259,6 @@ async def handle_list_update(update_data: dict):
 
 @api_router.post("/internal/notification")
 async def handle_intelligence_notification(notification: dict):
-    """Handle intelligence notification from scraping service"""
     await manager.broadcast({
         "type": "intelligence_notification",
         "data": notification
@@ -299,18 +273,14 @@ app.include_router(api_router)
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        # Send initial connection confirmation
         await websocket.send_json({
             "type": "connection_established", 
             "timestamp": datetime.now().isoformat(),
             "message": "WebSocket connected successfully"
         })
-        
         while True:
             try:
-                # Add timeout to prevent hanging
                 message = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
-                
                 if message.get("type") == "ping":
                     await websocket.send_json({"type": "pong", "timestamp": datetime.now().isoformat()})
                 elif message.get("type") == "request_status":
@@ -319,15 +289,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_json({"type": "status_update", "data": status})
                     except Exception as e:
                         await websocket.send_json({"type": "error", "message": f"Failed to get status: {e}"})
-                        
             except asyncio.TimeoutError:
-                # Send keepalive ping
                 await websocket.send_json({"type": "keepalive", "timestamp": datetime.now().isoformat()})
                 continue
             except Exception as e:
                 print(f"WebSocket message error: {e}")
                 break
-                
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
@@ -336,20 +303,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # --- BACKGROUND TASKS ---
 async def intelligence_monitor():
-    """Background task to monitor scraping service for real-time updates"""
     print("[MONITOR] Starting intelligence monitor...")
-    
     while True:
         try:
-            # Only broadcast if we have active connections
             if len(manager.active_connections) > 0:
-                # Get recent notifications from scraping service
                 notifications = await call_scraping_service("/api/scraping/notifications")
-                
                 if notifications and "notifications" in notifications:
-                    recent_notifications = notifications["notifications"][:5]  # Last 5 notifications
-                    
-                    # Only broadcast if we have new notifications
+                    recent_notifications = notifications["notifications"][:5]
                     if recent_notifications:
                         await manager.broadcast({
                             "type": "intelligence_update",
@@ -358,17 +318,11 @@ async def intelligence_monitor():
                                 "timestamp": datetime.now().isoformat()
                             }
                         })
-            
         except Exception as e:
-            # Only log scraping service errors occasionally to avoid spam
             if "Cannot connect to host localhost:5001" not in str(e):
                 print(f"[MONITOR] Error: {e}")
-        
-        await asyncio.sleep(15)  # Check every 15 seconds (reduced frequency)
+        await asyncio.sleep(15)
 
-# This duplicate was removed - lifespan is now defined above
-
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
