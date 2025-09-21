@@ -5,8 +5,8 @@ Test the complete tracking flow step by step
 
 import requests
 import json
-import sqlite3
 import os
+from pymongo import MongoClient
 
 def test_step_by_step():
     """Test each component in the tracking chain"""
@@ -14,38 +14,43 @@ def test_step_by_step():
     print("🔍 TESTING TRACKING FLOW STEP BY STEP")
     print("=" * 60)
     
-    # Step 1: Test if database exists and has correct structure
-    print("STEP 1: Database Structure Check")
+    # Step 1: Test MongoDB connection and collections
+    print("STEP 1: MongoDB Connection Check")
     print("-" * 40)
     
-    db_files = ['omerta_intelligence.db', 'omerta_hyper_intelligence.db']
-    for db_file in db_files:
-        if os.path.exists(db_file):
-            print(f"✅ Found database: {db_file}")
-            try:
-                conn = sqlite3.connect(db_file)
-                
-                # Check tables
-                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tables = [row[0] for row in cursor.fetchall()]
-                print(f"   📊 Tables: {', '.join(tables)}")
-                
-                # Check detective_targets if exists
-                if 'detective_targets' in tables:
-                    cursor = conn.execute('SELECT COUNT(*) FROM detective_targets WHERE is_active = 1')
-                    count = cursor.fetchone()[0]
-                    print(f"   🎯 Active detective targets: {count}")
-                    
-                    if count > 0:
-                        cursor = conn.execute('SELECT username FROM detective_targets WHERE is_active = 1 LIMIT 5')
-                        names = [row[0] for row in cursor.fetchall()]
-                        print(f"   👤 Sample targets: {', '.join(names)}")
-                
-                conn.close()
-            except Exception as e:
-                print(f"   ❌ Database error: {e}")
+    try:
+        client = MongoClient('mongodb://localhost:27017')
+        db = client['omerta_intelligence']
+        
+        print("✅ MongoDB connection: SUCCESS")
+        
+        # Check collections
+        collections = db.list_collection_names()
+        print(f"   📊 Collections: {', '.join(collections) if collections else 'None'}")
+        
+        # Check detective_targets collection
+        if 'detective_targets' in collections:
+            targets_count = db.detective_targets.count_documents({"is_active": True})
+            print(f"   🎯 Active detective targets: {targets_count}")
+            
+            if targets_count > 0:
+                sample_targets = list(db.detective_targets.find({"is_active": True}, {"username": 1}).limit(5))
+                names = [target.get('username', 'Unknown') for target in sample_targets]
+                print(f"   👤 Sample targets: {', '.join(names)}")
         else:
-            print(f"❌ Database not found: {db_file}")
+            print(f"   ⚠️  No detective_targets collection found")
+            
+        # Check tracked_players collection  
+        if 'tracked_players' in collections:
+            tracked_count = db.tracked_players.count_documents({})
+            print(f"   👥 Tracked players: {tracked_count}")
+        else:
+            print(f"   ⚠️  No tracked_players collection found")
+            
+        client.close()
+        
+    except Exception as e:
+        print(f"❌ MongoDB connection failed: {e}")
     
     # Step 2: Test scraping service endpoints
     print(f"\nSTEP 2: Scraping Service Test")
