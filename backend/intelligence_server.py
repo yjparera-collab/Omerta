@@ -139,21 +139,35 @@ async def get_notifications():
     result = await call_scraping_service("/api/scraping/notifications")
     return result
 
-@api_router.post("/intelligence/detective/add")
-async def add_detective_targets(targets: DetectiveTargets):
-    """Add players to detective tracking"""
-    result = await call_scraping_service("/api/scraping/detective/add", "POST", {"usernames": targets.usernames})
-    
-    # Broadcast update to connected clients
-    await manager.broadcast({
-        "type": "detective_targets_updated",
-        "data": {
-            "added_targets": targets.usernames,
-            "timestamp": datetime.now().isoformat()
-        }
-    })
-    
-    return result
+@api_router.get("/intelligence/tracked-players")
+async def get_tracked_players():
+    """Get all tracked players with their intelligence data"""
+    try:
+        # This would normally come from your scraping service
+        # For now, let's return mock data that matches the detective targets
+        result = await call_scraping_service("/api/scraping/detective/targets")
+        if "error" not in result:
+            return {"tracked_players": result.get("tracked_players", [])}
+        
+        # Fallback: get from MongoDB if we have stored tracked players
+        tracked = await db.tracked_players.find({"is_active": True}).to_list(length=100)
+        tracked_players = []
+        
+        for player in tracked:
+            tracked_players.append({
+                "player_id": player.get("player_id"),
+                "username": player.get("username"),
+                "priority": player.get("priority", 1),
+                "kills": player.get("kills", 0),
+                "shots": player.get("shots", 0),
+                "wealth_level": player.get("wealth_level", 0),
+                "plating": player.get("plating", "Unknown")
+            })
+        
+        return {"tracked_players": tracked_players}
+    except Exception as e:
+        print(f"Error getting tracked players: {e}")
+        return {"tracked_players": []}
 
 @api_router.post("/families/set-targets")
 async def set_family_targets(targets: FamilyTargets):
