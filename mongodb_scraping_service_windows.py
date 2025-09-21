@@ -637,22 +637,23 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                             # Try to parse user detail JSON
                             if soup.text.strip().startswith('{'):
                                 user_data = json.loads(soup.text.strip())
-                                
+
                                 if isinstance(user_data, dict):
-                                    # Ensure we have a user_id; if missing, try to resolve from username
-                                    uid = user_data.get('user_id')
+                                    # Unwrap wrapper if present
+                                    inner = user_data.get('data', user_data)
+                                    # Ensure user_id by mapping if missing
+                                    uid = user_data.get('user_id') or inner.get('user_id')
                                     if not uid:
                                         uid = data_manager.get_user_id_by_username(username)
                                         if uid:
-                                            user_data['user_id'] = uid
+                                            inner['user_id'] = uid
                                     if uid:
                                         data_manager.cache_player_data(
                                             str(uid),
                                             username,
-                                            user_data
+                                            inner
                                         )
                                         print(f"[DETAIL_WORKER] ✅ Updated data for {username} (id={uid})")
-                                        # notify backend for realtime update
                                         data_manager.notify_backend_list_updated({"username": username, "user_id": str(uid)})
                                     else:
                                         print(f"[DETAIL_WORKER] ⚠️ No user_id for {username} - cached detail skipped")
