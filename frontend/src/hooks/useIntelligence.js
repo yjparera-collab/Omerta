@@ -20,6 +20,7 @@ export const IntelligenceProvider = ({ children }) => {
   const [systemStatus, setSystemStatus] = useState({ connected: false });
   const [targetFamilies, setTargetFamilies] = useState([]);
   const [detectiveTargets, setDetectiveTargets] = useState([]);
+  const [trackedPlayers, setTrackedPlayers] = useState([]);
   const [ws, setWs] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
 
