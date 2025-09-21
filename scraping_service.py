@@ -382,16 +382,28 @@ def batch_detail_worker(driver, data_manager, priority_queue):
         try:
             # Collect a batch of players
             batch = []
+            tasks_taken = 0
+            
             for _ in range(BATCH_SIZE):
                 if not priority_queue.empty():
-                    priority, player = priority_queue.get()
+                    try:
+                        priority, player = priority_queue.get(timeout=1)
+                        tasks_taken += 1
 
-                    # Check if this player still needs an update
-                    cached_data = data_manager.get_cached_player_data(player['id'])
-                    if not cached_data:  # Only if not recently cached
-                        batch.append(player)
+                        # Check if this player still needs an update
+                        cached_data = data_manager.get_cached_player_data(player['id'])
+                        if not cached_data:  # Only if not recently cached
+                            batch.append(player)
 
+                    except:
+                        break  # No more items in queue
+
+            # Mark tasks as done for all items we took
+            for _ in range(tasks_taken):
+                try:
                     priority_queue.task_done()
+                except:
+                    pass  # Ignore if already done
 
             if not batch:
                 time.sleep(5)  # Wait if there's no work
