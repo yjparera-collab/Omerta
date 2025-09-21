@@ -165,17 +165,29 @@ async def get_tracked_players():
         result = await call_scraping_service("/api/scraping/detective/targets")
         if "error" not in result:
             return {"tracked_players": result.get("tracked_players", [])}
-        tracked = await db.tracked_players.find({"is_active": True}).to_list(length=100)
+        
+        # Fallback to MongoDB - use detective_targets collection
+        tracked = await db.detective_targets.find({"is_active": True}).to_list(length=100)
         tracked_players = []
         for player in tracked:
+            # Get cached player data for this username
+            cached_player = await db.player_cache.find_one({"username": player.get("username")})
+            player_data = {}
+            if cached_player:
+                import json
+                try:
+                    player_data = json.loads(cached_player.get('data', '{}'))
+                except:
+                    player_data = {}
+            
             tracked_players.append({
-                "player_id": player.get("player_id"),  # may be present but ignored
+                "player_id": player.get("player_id"),
                 "username": player.get("username"),
                 "priority": player.get("priority", 1),
-                "kills": player.get("kills"),
-                "shots": player.get("shots"),
-                "wealth": player.get("wealth"),
-                "plating": player.get("plating"),
+                "kills": player_data.get("kills", 0),
+                "shots": player_data.get("bullets_shot", {}).get("total", 0) if isinstance(player_data.get("bullets_shot"), dict) else player_data.get("bullets_shot", 0),
+                "wealth": player_data.get("wealth", 0),
+                "plating": player_data.get("plating", "Unknown"),
             })
         return {"tracked_players": tracked_players}
     except Exception as e:
