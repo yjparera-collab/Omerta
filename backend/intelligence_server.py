@@ -337,27 +337,34 @@ async def websocket_endpoint(websocket: WebSocket):
 # --- BACKGROUND TASKS ---
 async def intelligence_monitor():
     """Background task to monitor scraping service for real-time updates"""
+    print("[MONITOR] Starting intelligence monitor...")
+    
     while True:
         try:
-            # Get recent notifications from scraping service
-            notifications = await call_scraping_service("/api/scraping/notifications")
+            # Only broadcast if we have active connections
+            if len(manager.active_connections) > 0:
+                # Get recent notifications from scraping service
+                notifications = await call_scraping_service("/api/scraping/notifications")
+                
+                if notifications and "notifications" in notifications:
+                    recent_notifications = notifications["notifications"][:5]  # Last 5 notifications
+                    
+                    # Only broadcast if we have new notifications
+                    if recent_notifications:
+                        await manager.broadcast({
+                            "type": "intelligence_update",
+                            "data": {
+                                "notifications": recent_notifications,
+                                "timestamp": datetime.now().isoformat()
+                            }
+                        })
             
-            if notifications and "notifications" in notifications:
-                recent_notifications = notifications["notifications"][:5]  # Last 5 notifications
-                
-                # Broadcast to all connected clients
-                await manager.broadcast({
-                    "type": "intelligence_update",
-                    "data": {
-                        "notifications": recent_notifications,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                })
-                
         except Exception as e:
-            print(f"Error in intelligence monitor: {e}")
+            # Only log scraping service errors occasionally to avoid spam
+            if "Cannot connect to host localhost:5001" not in str(e):
+                print(f"[MONITOR] Error: {e}")
         
-        await asyncio.sleep(10)  # Check every 10 seconds
+        await asyncio.sleep(15)  # Check every 15 seconds (reduced frequency)
 
 # This duplicate was removed - lifespan is now defined above
 
