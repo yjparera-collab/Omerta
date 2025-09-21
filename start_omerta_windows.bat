@@ -39,7 +39,7 @@ echo.
 
 echo [5/5] Starting Frontend...
 timeout 5 >nul
-start "Omerta Frontend" cmd /k "title Omerta Frontend && cd /d %~dp0frontend && yarn start"
+start "Omerta Frontend" cmd /k "title Omerta Frontend && cd /d %~dp0frontend && npm start"
 echo ✓ Frontend starting on port 3000
 echo.
 
