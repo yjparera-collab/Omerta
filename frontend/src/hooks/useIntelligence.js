@@ -226,7 +226,8 @@ export const IntelligenceProvider = ({ children }) => {
     fetchNotifications();
     fetchSystemStatus();
     fetchTargetFamilies();
-  }, [fetchPlayers, fetchNotifications, fetchSystemStatus, fetchTargetFamilies]);
+    fetchTrackedPlayers();
+  }, [fetchPlayers, fetchNotifications, fetchSystemStatus, fetchTargetFamilies, fetchTrackedPlayers]);
 
   // Auto-refresh players every 60 seconds as backup to WebSocket
   useEffect(() => {
