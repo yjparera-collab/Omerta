@@ -169,6 +169,22 @@ async def get_tracked_players():
         print(f"Error getting tracked players: {e}")
         return {"tracked_players": []}
 
+@api_router.post("/intelligence/detective/add")
+async def add_detective_targets(targets: DetectiveTargets):
+    """Add players to detective tracking"""
+    result = await call_scraping_service("/api/scraping/detective/add", "POST", {"usernames": targets.usernames})
+    
+    # Broadcast update to connected clients
+    await manager.broadcast({
+        "type": "detective_targets_updated",
+        "data": {
+            "added_targets": targets.usernames,
+            "timestamp": datetime.now().isoformat()
+        }
+    })
+    
+    return result
+
 @api_router.post("/families/set-targets")
 async def set_family_targets(targets: FamilyTargets):
     """Set target families for tracking"""
