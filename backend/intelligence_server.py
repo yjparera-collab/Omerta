@@ -41,13 +41,15 @@ async def lifespan(app: FastAPI):
 # FastAPI app with lifespan
 app = FastAPI(title="Omerta Intelligence Dashboard API", lifespan=lifespan)
 
-# CORS
+# CORS - Enhanced for better preflight handling
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],  # Explicit origins
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicit methods
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight responses
 )
 
 # API Router
