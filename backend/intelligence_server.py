@@ -2,9 +2,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter, HTTPExce
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 import os
-import json
 import asyncio
 import aiohttp
 import uuid
