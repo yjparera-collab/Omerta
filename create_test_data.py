@@ -160,6 +160,9 @@ def create_test_data():
     # Insert test players
     for player in test_players:
         # Store as expected by the scraping service
+        player_copy = player.copy()
+        player_copy["last_updated"] = player_copy["last_updated"].isoformat()
+        
         player_data = {
             "user_id": player["user_id"],
             "username": player["username"],
@@ -171,7 +174,7 @@ def create_test_data():
             "bullets_shot": player["bullets_shot"]["total"],
             "wealth": player["wealth"],
             "plating": player["plating"],
-            "data": json.dumps(player),
+            "data": json.dumps(player_copy),
             "last_updated": player["last_updated"],
             "priority": 1
         }
