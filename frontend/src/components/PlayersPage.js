@@ -132,7 +132,7 @@ const PlayersPage = () => {
     });
 
     return filtered;
-  }, [players, nameFilter, familyFilter, rankFilter, showDead, sortField, sortDirection, playerDetails]);
+  }, [players, nameFilter, familyFilter, rankFilter, showDead, showTrackedOnly, sortField, sortDirection, playerDetails]);
 
   const handleSort = (field) => {
     if (sortField === field) {
