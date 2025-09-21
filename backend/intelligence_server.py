@@ -58,7 +58,7 @@ api_router = APIRouter(prefix="/api")
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
-        self.scraping_service_url = "http://localhost:5001"
+        self.scraping_service_url = "http://127.0.0.1:5001"
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
