@@ -57,6 +57,40 @@ class IntelligenceDataManager:
 
         self.load_detective_targets()
 
+    def get_user_id_by_username(self, username: str):
+        """Try to resolve user_id from username using latest list or cache"""
+        if not username:
+            return None
+        try:
+            name_l = username.lower()
+            # Prefer the most recent full_user_list
+            for user in self.full_user_list or []:
+                # different list formats may use different keys
+                u_name = user.get('username') or user.get('uname') or user.get('name')
+                if u_name and str(u_name).lower() == name_l:
+                    uid = user.get('user_id') or user.get('id') or user.get('player_id')
+                    if uid is not None:
+                        return str(uid)
+            # Fallback to player_cache document
+            doc = self.db.player_cache.find_one({"username": username})
+            if doc and doc.get('user_id'):
+                return str(doc['user_id'])
+        except Exception as e:
+            print(f"[MAP] Failed to map username to user_id for {username}: {e}")
+        return None
+
+    def notify_backend_list_updated(self, payload=None):
+        """Non-blocking notify to FastAPI to broadcast updates"""
+        try:
+            backend_url = os.environ.get('BACKEND_URL', 'http://127.0.0.1:8001')
+            data = payload or {"source": "scraper", "timestamp": datetime.utcnow().isoformat()}
+            # fire-and-forget with short timeout
+            requests.post(f"{backend_url}/api/internal/list-updated", json=data, timeout=2)
+        except Exception as e:
+            # don't crash scraper because backend might not be local
+            if 'ConnectionRefusedError' not in str(e):
+                print(f"[NOTIFY] Backend notify failed: {e}")
+
     def add_notification_callback(self, callback):
         """Register callback voor real-time notifications"""
         self.notification_callbacks.append(callback)
