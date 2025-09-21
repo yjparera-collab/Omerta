@@ -34,12 +34,45 @@ def init_mongodb():
     print(f"[DB] Connected to MongoDB: {mongo_url}")
     print(f"[DB] Database: {db.name}")
     
-    # Create indexes for better performance
-    db.detective_targets.create_index("username", unique=True)  # Changed to username
-    db.detective_targets.create_index("is_active")
-    db.player_cache.create_index("username", unique=True)  # Changed to username
-    db.player_cache.create_index("user_id")  # Keep as secondary index
-    db.intelligence_notifications.create_index("timestamp")
+    # Create indexes for better performance - handle conflicts gracefully
+    try:
+        # Try to create unique username index
+        try:
+            db.detective_targets.create_index("username", unique=True)
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"[DB] Detective targets username index issue: {e}")
+        
+        try:
+            db.detective_targets.create_index("is_active")
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"[DB] Detective targets is_active index issue: {e}")
+        
+        try:
+            db.player_cache.create_index("username", unique=True)
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"[DB] Player cache username index issue: {e}")
+        
+        try:
+            # Only create non-unique user_id index if it doesn't exist
+            existing_indexes = list(db.player_cache.list_indexes())
+            has_user_id_index = any("user_id" in str(idx) for idx in existing_indexes)
+            if not has_user_id_index:
+                db.player_cache.create_index("user_id")
+        except Exception as e:
+            print(f"[DB] Player cache user_id index issue: {e}")
+        
+        try:
+            db.intelligence_notifications.create_index("timestamp")
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"[DB] Intelligence notifications timestamp index issue: {e}")
+        
+        print("[DB] Index setup completed")
+    except Exception as e:
+        print(f"[DB] Index setup failed: {e}")
     
     return db
 
