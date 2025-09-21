@@ -197,3 +197,5 @@ test_plan:
 agent_communication:
     - agent: "main"
       message: "Please verify: (1) Non-tracked players without details show Kills/Shots/Wealth as N/A; (2) Tracked players (or players with fetched details) show numeric values including 0; (3) Plating continues to display from general API when details missing; (4) No regressions in sorting/filters."
+    - agent: "testing"
+      message: "❌ CRITICAL FAILURE: N/A display logic completely broken. All players show numeric values instead of N/A for non-tracked players without details. The computeRowStats function is not working as intended - players are getting data from general players list instead of showing N/A when both tracked and details data are missing. API calls to individual player details are failing but frontend still displays numeric data. Need to fix the logic in computeRowStats to properly check if player is tracked AND has details before showing numeric values, otherwise show N/A."
