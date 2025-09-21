@@ -197,7 +197,7 @@ class IntelligenceDataManager:
                 )
                 
                 # Generate intelligence notification
-                message = f"🎯 {username} ({family}) scored {kill_diff} new kill{'s' if kill_diff > 1 else ''}"
+                message = f"[TARGET] {username} ({family}) scored {kill_diff} new kill{'s' if kill_diff > 1 else ''}"
                 self.create_intelligence_notification(user_id, username, 'kill_update', message, {
                     'old_kills': old_kills,
                     'new_kills': new_kills,
@@ -216,7 +216,7 @@ class IntelligenceDataManager:
                 )
                 
                 # Generate intelligence notification
-                message = f"🔫 {username} ({family}) fired {shot_diff} shot{'s' if shot_diff > 1 else ''}"
+                message = f"[SHOTS] {username} ({family}) fired {shot_diff} shot{'s' if shot_diff > 1 else ''}"
                 self.create_intelligence_notification(user_id, username, 'shot_update', message, {
                     'old_shots': old_shots,
                     'new_shots': new_shots,
@@ -234,7 +234,7 @@ class IntelligenceDataManager:
                 )
                 
                 # CRITICAL INTELLIGENCE NOTIFICATION
-                message = f"🚨 CRITICAL: {username} ({family}) plating dropped to {new_plating} - VULNERABLE TARGET!"
+                message = f"[CRITICAL] CRITICAL: {username} ({family}) plating dropped to {new_plating} - VULNERABLE TARGET!"
                 self.create_intelligence_notification(user_id, username, 'plating_drop', message, {
                     'old_plating': old_plating,
                     'new_plating': new_plating,
@@ -245,7 +245,7 @@ class IntelligenceDataManager:
         old_kills_visible = old_data.get('kills') not in ['N/A', None, '']
         new_kills_visible = new_data.get('kills') not in ['N/A', None, '']
         if not old_kills_visible and new_kills_visible:
-            message = f"👁️ {username} ({family}) profile became public - intelligence now available"
+            message = f"[INTEL] {username} ({family}) profile became public - intelligence now available"
             self.create_intelligence_notification(user_id, username, 'profile_public', message, {
                 'family': family,
                 'kills': new_data.get('kills'),
@@ -525,13 +525,13 @@ def set_target_families():
 if __name__ == "__main__":
     driver = None
     try:
-        print("\n🔧 Starting Omerta Intelligence Scraping Service...")
+        print("\n[SETUP] Starting Omerta Intelligence Scraping Service...")
         
         # Start Flask API
         flask_thread = threading.Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5001, host='127.0.0.1'))
         flask_thread.daemon = True
         flask_thread.start()
-        print("🌐 Flask scraping API started on http://127.0.0.1:5001")
+        print("[WEB] Flask scraping API started on http://127.0.0.1:5001")
 
         # Setup optimized browser
         print("\n--- SETTING UP BROWSER FOR CLOUDFLARE ---")
@@ -557,11 +557,11 @@ if __name__ == "__main__":
         batch_thread.daemon = True
         batch_thread.start()
 
-        print(f"\n🚀 OMERTA INTELLIGENCE SCRAPING ACTIVE")
-        print(f"⚡ Smart List Worker: Every {MAIN_LIST_INTERVAL} seconds")
-        print(f"🔄 Batch Detail Worker: {BATCH_SIZE} players per batch")
-        print(f"💾 Detective Cache: {CACHE_DURATION}s cache duration")
-        print(f"🎯 Ready for FastAPI integration on port 8001")
+        print(f"\n[START] OMERTA INTELLIGENCE SCRAPING ACTIVE")
+        print(f"[LIVE] Smart List Worker: Every {MAIN_LIST_INTERVAL} seconds")
+        print(f"[REFRESH] Batch Detail Worker: {BATCH_SIZE} players per batch")
+        print(f"[CACHE] Detective Cache: {CACHE_DURATION}s cache duration")
+        print(f"[TARGET] Ready for FastAPI integration on port 8001")
 
         while True:
             time.sleep(100)
@@ -569,10 +569,10 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n\n👋 Scraping service stopped by user.")
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
     finally:
         if driver:
             driver.quit()
         if hasattr(data_manager, 'db'):
             data_manager.db.close()
-        print("🔒 Browser and database connections closed.")
+        print("[SECURE] Browser and database connections closed.")

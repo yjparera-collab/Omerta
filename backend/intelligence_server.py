@@ -296,14 +296,14 @@ async def intelligence_monitor():
 async def startup_event():
     # Start intelligence monitoring
     asyncio.create_task(intelligence_monitor())
-    print("🚀 FastAPI Intelligence Dashboard started")
-    print("🔌 WebSocket endpoint: ws://localhost:8001/ws")
-    print("📡 Connected to scraping service on port 5001")
+    print("[START] FastAPI Intelligence Dashboard started")
+    print("[CONNECT] WebSocket endpoint: ws://localhost:8001/ws")
+    print("[COMM] Connected to scraping service on port 5001")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     client.close()
-    print("🔒 FastAPI server shutting down")
+    print("[SECURE] FastAPI server shutting down")
 
 # Configure logging
 logging.basicConfig(

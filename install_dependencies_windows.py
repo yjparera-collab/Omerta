@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Install all dependencies for Omerta Intelligence Dashboard
+Windows-compatible installer for Omerta Intelligence Dashboard
 """
 
 import subprocess
@@ -41,55 +41,28 @@ def main():
     if backend_requirements.exists():
         if not run_command(f"pip install -r {backend_requirements}", "Installing Python dependencies"):
             return False
-    else:
-        print("[WARNING] Backend requirements.txt not found, installing essential packages...")
-        essential_packages = [
-            "fastapi==0.110.1",
-            "uvicorn==0.25.0", 
-            "motor==3.3.1",
-            "python-dotenv>=1.0.1",
-            "aiohttp>=3.9.0",
-            "undetected-chromedriver>=3.5.0",
-            "beautifulsoup4>=4.12.0",
-            "selenium>=4.15.0",
-            "flask>=3.0.0"
-        ]
-        
-        for package in essential_packages:
-            if not run_command(f"pip install {package}", f"Installing {package}"):
-                print(f"[WARNING] Failed to install {package}, continuing...")
-
-    # Install frontend dependencies
+    
+    # Install frontend dependencies with npm and legacy peer deps for Windows
     frontend_dir = Path(__file__).parent / "frontend"
     if frontend_dir.exists():
+        original_dir = os.getcwd()
         os.chdir(frontend_dir)
         
-        if not run_command("yarn install", "Installing frontend dependencies"):
-            print("[WARNING] Yarn install failed, trying npm...")
-            if not run_command("npm install", "Installing frontend dependencies with npm"):
-                return False
-
-    # Create necessary directories
-    app_dir = Path(__file__).parent
-    
-    directories_to_create = [
-        app_dir / "logs",
-        app_dir / "data",
-        app_dir / "cache"
-    ]
-    
-    for directory in directories_to_create:
-        directory.mkdir(exist_ok=True)
-        print(f"[DIR] Created directory: {directory}")
+        # Try npm with legacy peer deps (Windows friendly)
+        if not run_command("npm install --legacy-peer-deps", "Installing frontend dependencies (Windows mode)"):
+            # Fallback: force install
+            if not run_command("npm install --force", "Force installing frontend dependencies"):
+                print("[WARNING] Frontend dependencies may have issues, but continuing...")
+        
+        os.chdir(original_dir)
 
     print("\n" + "=" * 60)
-    print("[SUCCESS] SETUP COMPLETED SUCCESSFULLY!")
+    print("[SUCCESS] SETUP COMPLETED!")
     print("=" * 60)
     print("Next steps:")
     print("  1. Run: python start_intelligence.py")
-    print("  2. Wait for Chrome browser setup (manual CAPTCHA may be required)")
+    print("  2. Wait for Chrome browser setup")
     print("  3. Open browser to: http://localhost:3000")
-    print("  4. Configure target families and enjoy real-time intelligence!")
     print("=" * 60)
     
     return True
