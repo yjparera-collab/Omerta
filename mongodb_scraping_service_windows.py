@@ -505,31 +505,33 @@ def smart_list_worker(driver, data_manager, priority_queue):
                             player_list = users_data
                             print(f"[LIST_WORKER] ✅ Got list format: {len(player_list)} players")
                         elif isinstance(users_data, dict):
-                            # Dictionary with players inside
+                            # Dictionary wrapper or container
                             print(f"[LIST_WORKER] 📊 Got dict format, keys: {list(users_data.keys())}")
-                            
-                            # Try common keys for player data
-                            if 'users' in users_data:
-                                player_list = users_data['users']
-                            elif 'players' in users_data:
-                                player_list = users_data['players']
-                            elif 'data' in users_data:
-                                player_list = users_data['data']
-                            else:
-                                # Maybe the dict itself contains player data
-                                if 'user_id' in users_data:
-                                    # Single player object
-                                    player_list = [users_data]
+
+                            # Unwrap common wrapper {cached, time, expires, data}
+                            container = users_data.get('data', users_data)
+
+                            # If the unwrapped container is a list, it's the player list
+                            if isinstance(container, list):
+                                player_list = container
+                            elif isinstance(container, dict):
+                                # Try common keys inside container
+                                if 'users' in container:
+                                    player_list = container['users']
+                                elif 'players' in container:
+                                    player_list = container['players']
                                 else:
-                                    # Try to extract all values if they look like players
+                                    # Extract dict values that look like player dicts
                                     player_list = []
-                                    for key, value in users_data.items():
-                                        if isinstance(value, dict) and 'user_id' in value:
+                                    for key, value in container.items():
+                                        if isinstance(value, dict) and ('user_id' in value or 'id' in value):
                                             player_list.append(value)
                                         elif isinstance(value, list):
                                             player_list.extend(value)
-                            
-                            print(f"[LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 'unknown'} players from dict")
+                            else:
+                                player_list = []
+
+                            print(f"[LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 0} players from wrapper")
                         else:
                             print(f"[LIST_WORKER] ⚠️ Unexpected data format: {type(users_data)}")
                             player_list = []
