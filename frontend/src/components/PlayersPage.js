@@ -48,16 +48,16 @@ const PlayersPage = () => {
     }
   }, [players, getPlayerDetailsByUsername]);
 
-  // Ensure detective targets (tracked players) always have details loaded
+  // Ensure detective targets (tracked players) always have details loaded - USERNAME FIRST
   useEffect(() => {
     const loadTrackedDetails = async () => {
       const updates = {};
       for (const tp of trackedPlayers || []) {
         const p = players.find(pp => pp.uname === tp.username);
-        if (p && !playerDetails[p.id]) {
+        if (p && !playerDetails[p.uname]) { // Use username as key
           try {
-            const detail = await getPlayerDetails(p.id);
-            if (detail) updates[p.id] = detail;
+            const detail = await getPlayerDetailsByUsername(p.uname);
+            if (detail) updates[p.uname] = detail; // Key by username
           } catch (e) {
             console.warn('Failed to get tracked player detail', tp.username, e);
           }
@@ -68,7 +68,7 @@ const PlayersPage = () => {
     if (trackedPlayers && trackedPlayers.length > 0 && players.length > 0) {
       loadTrackedDetails();
     }
-  }, [trackedPlayers, players, playerDetails, getPlayerDetails]);
+  }, [trackedPlayers, players, playerDetails, getPlayerDetailsByUsername]);
 
   // Get unique families and ranks for filters
   const families = useMemo(() => {
