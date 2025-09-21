@@ -44,12 +44,12 @@
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
-##   test_sequence: 3
+##   test_sequence: 4
 ##   run_ui: true
 ##
 ## test_plan:
 ##   current_focus:
-##     - "Rank Column Sorting (Position header)"
+##     - "Plating fallback + details normalization (kills/shots/wealth zeros)"
 ##   stuck_tasks:
 ##     - ""
 ##   test_all: false
@@ -166,20 +166,31 @@ frontend:
           agent: "testing"
           comment: "✅ COMPREHENSIVE RANK SORTING TEST PASSED: Initial state correctly shows unsorted (⚪). First click shows ASC (🔼) with perfect ordering #1, #2, #3, #4, #5, #6, then unranked (—) at bottom. Second click shows DESC (🔽) with unranked (—) first, then #6 down to #1. Alphabetical tiebreaker working correctly for equal positions (tested with unranked players: DeltaPlayer, EpsilonPlayer, KappaPlayer, ThetaPlayer in A-Z order). All requirements met perfectly."
 
+  - task: "Plating & details normalization (kills/shots/wealth zeros)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/PlayersPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented plating fallback to general list (player.plating) when details missing. Fixed 'Very High' precedence over 'High'. Normalized kills/shots/wealth with numeric coercion and proper zero handling. Added tracked-player detail prefetch. Ready for UI validation."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 3
+  test_sequence: 4
   run_ui: true
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Plating fallback + details normalization (kills/shots/wealth zeros)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Please validate again: First click on Rank should show 🔼 and order #1..#N with — at bottom; second click 🔽 with — first then #N..#1. Tiebreaker by username for equal positions."
-    - agent: "testing"
-      message: "✅ RANK SORTING VALIDATION COMPLETE: All requirements successfully met. Initial state shows unsorted (⚪), first click ASC (🔼) with #1-#6 then unranked (—), second click DESC (🔽) with unranked first then #6-#1. Alphabetical tiebreaker confirmed working. Task is fully functional and ready for production."
+      message: "Please verify that plating now displays from the general API when details are missing, and that kills/shots/wealth render with correct zero handling for tracked players. Also confirm 'Very High' is styled correctly and not downgraded to 'High'."

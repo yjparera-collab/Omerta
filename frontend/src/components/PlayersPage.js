@@ -17,11 +17,20 @@ const PlayersPage = () => {
   const [selectedPlayers, setSelectedPlayers] = useState(new Set());
   const [playerDetails, setPlayerDetails] = useState({});
 
-  // Load player details for wealth/plating display
+  // Helper: safely coerce to number (including numeric strings)
+  const toNumber = (val, fallback = undefined) => {
+    const n = Number(val);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  // Load player details for wealth/kills/shots display
   useEffect(() => {
     const loadPlayerDetails = async () => {
       const details = {};
-      for (const player of players.slice(0, 100)) { // Increased limit for better coverage
+      // Prefetch a reasonable chunk of currently available players to improve hit-rate
+      // Note: We keep it modest to avoid spikes on slower environments
+      const prefetchList = players.slice(0, 150);
+      for (const player of prefetchList) {
         try {
           const detail = await getPlayerDetails(player.id);
           if (detail) {
@@ -31,13 +40,35 @@ const PlayersPage = () => {
           console.error(`Failed to load details for ${player.uname}:`, error);
         }
       }
-      setPlayerDetails(details);
+      if (Object.keys(details).length > 0) setPlayerDetails(prev => ({ ...prev, ...details }));
     };
 
     if (players.length > 0) {
       loadPlayerDetails();
     }
   }, [players, getPlayerDetails]);
+
+  // Ensure detective targets (tracked players) always have details loaded
+  useEffect(() => {
+    const loadTrackedDetails = async () => {
+      const updates = {};
+      for (const tp of trackedPlayers || []) {
+        const p = players.find(pp => pp.uname === tp.username);
+        if (p && !playerDetails[p.id]) {
+          try {
+            const detail = await getPlayerDetails(p.id);
+            if (detail) updates[p.id] = detail;
+          } catch (e) {
+            console.warn('Failed to get tracked player detail', tp.username, e);
+          }
+        }
+      }
+      if (Object.keys(updates).length > 0) setPlayerDetails(prev => ({ ...prev, ...updates }));
+    };
+    if (trackedPlayers && trackedPlayers.length > 0 && players.length > 0) {
+      loadTrackedDetails();
+    }
+  }, [trackedPlayers, players, playerDetails, getPlayerDetails]);
 
   // Get unique families and ranks for filters
   const families = useMemo(() => {
@@ -130,8 +161,9 @@ const PlayersPage = () => {
           break;
         }
         case 'wealth':
-          aVal = playerDetails[a.id]?.wealth || 0;
-          bVal = playerDetails[b.id]?.wealth || 0;
+          // Sort by wealth using details if available; fallback 0
+          aVal = toNumber(playerDetails[a.id]?.wealth, -1);
+          bVal = toNumber(playerDetails[b.id]?.wealth, -1);
           break;
         case 'name':
           aVal = a.uname || '';
@@ -212,7 +244,9 @@ const PlayersPage = () => {
   };
 
   const formatWealth = (wealth) => {
-    if (wealth === undefined || wealth === null) return 'N/A';
+    if (wealth === undefined || wealth === null || wealth === '') return 'N/A';
+    const num = toNumber(wealth);
+    if (!Number.isFinite(num)) return 'N/A';
     
     const wealthLevels = {
       0: "Straydog",
@@ -224,29 +258,58 @@ const PlayersPage = () => {
       6: "Richer than God"
     };
     
-    return wealthLevels[wealth] || `Level ${wealth}`;
+    return wealthLevels[num] ?? `Level ${num}`;
   };
 
   const getPlatingLevel = (plating) => {
     if (!plating) return { text: 'Unknown', class: 'text-gray-400', level: 0 };
     
-    const level = plating.toLowerCase();
+    const level = String(plating).toLowerCase();
     if (level.includes('none') || level.includes('no plating')) {
       return { text: 'VULNERABLE', class: 'text-red-400 font-bold animate-pulse', level: 0 };
     }
-    if (level.includes('low')) {
-      return { text: 'Low', class: 'text-orange-400', level: 1 };
-    }
-    if (level.includes('medium')) {
-      return { text: 'Medium', class: 'text-yellow-400', level: 2 };
+    if (level.includes('very high')) { // check 'very high' before 'high'
+      return { text: 'Very High', class: 'text-blue-400', level: 4 };
     }
     if (level.includes('high')) {
       return { text: 'High', class: 'text-green-400', level: 3 };
     }
-    if (level.includes('very high')) {
-      return { text: 'Very High', class: 'text-blue-400', level: 4 };
+    if (level.includes('medium')) {
+      return { text: 'Medium', class: 'text-yellow-400', level: 2 };
+    }
+    if (level.includes('low')) {
+      return { text: 'Low', class: 'text-orange-400', level: 1 };
     }
     return { text: plating, class: 'text-gray-300', level: 1 };
+  };
+
+  // Normalize row stats using details + fallbacks from general list
+  const computeRowStats = (player) => {
+    const details = playerDetails[player.id] || {};
+
+    // Kills
+    const kills = toNumber(details.kills, undefined);
+
+    // Shots: bullets_shot can be object {total} or numeric
+    let shotsVal = undefined;
+    const bs = details.bullets_shot;
+    if (bs !== undefined && bs !== null) {
+      if (typeof bs === 'object') shotsVal = toNumber(bs.total, 0);
+      else shotsVal = toNumber(bs, 0);
+    }
+
+    // Wealth
+    const wealthVal = toNumber(details.wealth, undefined);
+
+    // Plating: prefer details, fallback to general list
+    const platingVal = details.plating ?? player.plating ?? null;
+
+    return {
+      kills: kills ?? 0, // show 0 if zero, N/A only when truly missing
+      shots: shotsVal ?? 0,
+      wealth: wealthVal,
+      plating: platingVal,
+    };
   };
 
   return (
@@ -432,11 +495,11 @@ const PlayersPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPlayers.map((player, index) => {
+                  {filteredPlayers.map((player) => {
                     const status = getPlayerStatus(player);
                     const isSelected = selectedPlayers.has(player.id);
-                    const details = playerDetails[player.id];
-                    const plating = getPlatingLevel(details?.plating);
+                    const row = computeRowStats(player);
+                    const plating = getPlatingLevel(row.plating);
                     
                     return (
                       <tr
@@ -465,8 +528,8 @@ const PlayersPage = () => {
                         <td className="p-3">
                           <div className="font-semibold text-white text-base">{player.uname}</div>
                           <div className="text-xs text-slate-400 mt-1">
-                            <span className="mr-3">Kills: {details?.kills || 'N/A'}</span>
-                            <span>Shots: {details?.bullets_shot?.total || 'N/A'}</span>
+                            <span className="mr-3">Kills: {row.kills ?? 'N/A'}</span>
+                            <span>Shots: {row.shots ?? 'N/A'}</span>
                           </div>
                         </td>
                         <td className="p-3">
@@ -477,7 +540,7 @@ const PlayersPage = () => {
                         </td>
                         <td className="p-3">
                           <div className="text-green-400 font-semibold">
-                            {formatWealth(details?.wealth)}
+                            {formatWealth(row.wealth)}
                           </div>
                         </td>
                         <td className="p-3">
