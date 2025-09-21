@@ -329,44 +329,48 @@ def add_detective_targets():
 
 # --- Background Workers ---
 def smart_list_worker(driver, data_manager, priority_queue):
-    """Worker that fetches the main user list periodically"""
+    """Worker that fetches the main user list with improved Cloudflare handling"""
     while True:
         try:
-            print(f"[LIST_WORKER] Fetching user list...")
-            driver.get(USER_LIST_URL)
-            time.sleep(2)
+            print(f"\n[LIST_WORKER] Fetching user list...")
             
-            page_source = driver.page_source
-            soup = BeautifulSoup(page_source, 'html.parser')
-            
-            # Try to parse JSON from the page
-            try:
-                # Look for JSON data in the page
-                if soup.text.strip().startswith('[') or soup.text.strip().startswith('{'):
-                    users_data = json.loads(soup.text.strip())
-                    
-                    if isinstance(users_data, list):
-                        data_manager.full_user_list = users_data
-                        print(f"[LIST_WORKER] Updated user list: {len(users_data)} players")
+            # Use improved Cloudflare handler
+            if smart_cloudflare_handler(driver, USER_LIST_URL, worker_name="LIST_WORKER"):
+                time.sleep(2)  # Extra wait after Cloudflare
+                page_source = driver.page_source
+                soup = BeautifulSoup(page_source, 'html.parser')
+                
+                # Try to parse JSON from the page
+                try:
+                    # Look for JSON data in the page
+                    if soup.text.strip().startswith('[') or soup.text.strip().startswith('{'):
+                        users_data = json.loads(soup.text.strip())
                         
-                        # Cache basic user data
-                        for user in users_data:
-                            if isinstance(user, dict) and 'user_id' in user:
-                                data_manager.cache_player_data(
-                                    user['user_id'], 
-                                    user.get('username', ''), 
-                                    user
-                                )
-                    else:
-                        print(f"[LIST_WORKER] Unexpected data format: {type(users_data)}")
-                        
-            except json.JSONDecodeError as e:
-                print(f"[LIST_WORKER] Failed to parse JSON: {e}")
-                print(f"[LIST_WORKER] Page content preview: {soup.text[:200]}")
+                        if isinstance(users_data, list):
+                            data_manager.full_user_list = users_data
+                            print(f"[LIST_WORKER] ✅ Updated user list: {len(users_data)} players")
+                            
+                            # Cache basic user data
+                            for user in users_data:
+                                if isinstance(user, dict) and 'user_id' in user:
+                                    data_manager.cache_player_data(
+                                        user['user_id'], 
+                                        user.get('username', ''), 
+                                        user
+                                    )
+                        else:
+                            print(f"[LIST_WORKER] ⚠️ Unexpected data format: {type(users_data)}")
+                            
+                except json.JSONDecodeError as e:
+                    print(f"[LIST_WORKER] ❌ Failed to parse JSON: {e}")
+                    print(f"[LIST_WORKER] Page content preview: {soup.text[:200]}")
+            else:
+                print(f"[LIST_WORKER] ❌ Failed to bypass Cloudflare")
                 
         except Exception as e:
-            print(f"[LIST_WORKER] Error: {e}")
+            print(f"[LIST_WORKER] ❌ Error: {e}")
         
+        print(f"[LIST_WORKER] ⏳ Next update in {MAIN_LIST_INTERVAL} seconds")
         time.sleep(MAIN_LIST_INTERVAL)
 
 def batch_detail_worker(driver, data_manager, priority_queue):
