@@ -21,7 +21,7 @@ const PlayersPage = () => {
   useEffect(() => {
     const loadPlayerDetails = async () => {
       const details = {};
-      for (const player of players.slice(0, 50)) { // Limit to first 50 for performance
+      for (const player of players.slice(0, 100)) { // Increased limit for better coverage
         try {
           const detail = await getPlayerDetails(player.id);
           if (detail) {
