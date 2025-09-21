@@ -148,21 +148,38 @@ class IntelligenceDataManager:
     def cache_player_data(self, user_id, username, data):
         """Cache player data in MongoDB"""
         try:
-            self.db.player_cache.update_one(
-                {"user_id": user_id},
-                {
-                    "$set": {
-                        "user_id": user_id,
-                        "username": username,
-                        "data": json.dumps(data),
-                        "last_updated": datetime.utcnow(),
-                        "priority": 1
-                    }
-                },
+            # Ensure user_id and username are strings
+            user_id_str = str(user_id) if user_id else None
+            username_str = str(username) if username else f"Player_{user_id_str}"
+            
+            if not user_id_str:
+                raise ValueError("No valid user_id provided")
+            
+            # Create document
+            doc = {
+                "user_id": user_id_str,
+                "username": username_str,
+                "data": json.dumps(data, default=str),  # Handle datetime objects
+                "last_updated": datetime.utcnow(),
+                "priority": 1
+            }
+            
+            result = self.db.player_cache.update_one(
+                {"user_id": user_id_str},
+                {"$set": doc},
                 upsert=True
             )
+            
+            # Verify the operation
+            if result.upserted_id or result.modified_count > 0:
+                return True
+            else:
+                print(f"[CACHE] ⚠️ No changes made for {username_str}")
+                return False
+                
         except Exception as e:
-            print(f"[ERROR] Caching player data for {username}: {e}")
+            print(f"[ERROR] Caching player data for {username} (ID: {user_id}): {e}")
+            return False
 
     def get_cached_players_count(self):
         """Get count of cached players"""
