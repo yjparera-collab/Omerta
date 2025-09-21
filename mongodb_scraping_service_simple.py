@@ -239,6 +239,73 @@ def add_detective_targets():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/scraping/notifications')
+def get_notifications():
+    """Get intelligence notifications"""
+    try:
+        notifications = list(
+            data_manager.db.intelligence_notifications
+            .find({}, {"_id": 0})
+            .sort("timestamp", -1)
+            .limit(50)
+        )
+        
+        return jsonify({
+            "notifications": notifications,
+            "count": len(notifications),
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scraping/players')
+def get_players():
+    """Get all cached players"""
+    try:
+        players = list(
+            data_manager.db.player_cache
+            .find({}, {"_id": 0})
+            .sort("last_updated", -1)
+            .limit(1000)
+        )
+        
+        parsed_players = []
+        for player in players:
+            try:
+                player_data = json.loads(player.get('data', '{}'))
+                parsed_players.append(player_data)
+            except:
+                pass
+        
+        return jsonify({
+            "players": parsed_players,
+            "count": len(parsed_players),
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scraping/player/<player_id>')
+def get_player_detail(player_id):
+    """Get specific player details"""
+    try:
+        player = data_manager.db.player_cache.find_one(
+            {"user_id": player_id}, 
+            {"_id": 0}
+        )
+        
+        if not player:
+            return jsonify({"error": "Player not found"}), 404
+        
+        try:
+            player_data = json.loads(player.get('data', '{}'))
+            return jsonify(player_data)
+        except:
+            return jsonify({"error": "Invalid player data"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- Background Workers ---
 def simple_list_worker(driver, data_manager):
     """Simple worker for user list"""
