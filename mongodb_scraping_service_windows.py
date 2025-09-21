@@ -12,6 +12,7 @@ import os
 import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
+import random  # Added for random delays
 
 # Load environment variables
 load_dotenv()
