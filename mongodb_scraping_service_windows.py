@@ -616,13 +616,24 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                             if soup.text.strip().startswith('{'):
                                 user_data = json.loads(soup.text.strip())
                                 
-                                if isinstance(user_data, dict) and user_data.get('user_id'):
-                                    data_manager.cache_player_data(
-                                        user_data['user_id'],
-                                        username,
-                                        user_data
-                                    )
-                                    print(f"[DETAIL_WORKER] ✅ Updated data for {username}")
+                                if isinstance(user_data, dict):
+                                    # Ensure we have a user_id; if missing, try to resolve from username
+                                    uid = user_data.get('user_id')
+                                    if not uid:
+                                        uid = data_manager.get_user_id_by_username(username)
+                                        if uid:
+                                            user_data['user_id'] = uid
+                                    if uid:
+                                        data_manager.cache_player_data(
+                                            str(uid),
+                                            username,
+                                            user_data
+                                        )
+                                        print(f"[DETAIL_WORKER] ✅ Updated data for {username} (id={uid})")
+                                        # notify backend for realtime update
+                                        data_manager.notify_backend_list_updated({"username": username, "user_id": str(uid)})
+                                    else:
+                                        print(f"[DETAIL_WORKER] ⚠️ No user_id for {username} - cached detail skipped")
                         else:
                             print(f"[DETAIL_WORKER] ❌ Failed to access {username}")
                         
