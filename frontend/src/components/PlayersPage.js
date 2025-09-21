@@ -10,7 +10,7 @@ const PlayersPage = () => {
   const [rankFilter, setRankFilter] = useState('');
   const [showDead, setShowDead] = useState(false);
   const [showTrackedOnly, setShowTrackedOnly] = useState(false);
-  const [sortField, setSortField] = useState('position');
+  const [sortField, setSortField] = useState(null); // start unsorted so first click sets ASC explicitly
   const [sortDirection, setSortDirection] = useState('asc');
   
   // Selected players for detective tracking
@@ -84,6 +84,10 @@ const PlayersPage = () => {
       }
       return true;
     });
+
+    if (!sortField) {
+      return filtered; // keep original order until user picks a sort
+    }
 
     filtered.sort((a, b) => {
       // Special handling for Position (Rank #) column to match exact UX expectations
