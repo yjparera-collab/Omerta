@@ -286,7 +286,11 @@ const PlayersPage = () => {
 
   // Normalize row stats using tracked data (preferred) + details, with plating fallback to general list
   const computeRowStats = (player) => {
-    const details = playerDetails[player.id] || {};
+    // Unwrap detail payload if wrapped as {cached, time, data: {...}}
+    let details = playerDetails[player.id] || {};
+    if (details && typeof details === 'object' && details.data) {
+      details = details.data;
+    }
     const tracked = (trackedPlayers || []).find(tp => tp.username === player.uname);
 
     // Kills
