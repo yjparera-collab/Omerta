@@ -31,10 +31,10 @@ start "Omerta Backend" cmd /k "title Omerta Backend API && cd /d %~dp0backend &&
 echo ✓ Backend starting on port 8001
 echo.
 
-echo [4/5] Starting Scraping Service...
+echo [4/5] Starting Scraping Service (Windows - Visible Browser)...
 timeout 3 >nul
-start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && set MONGO_URL=mongodb://localhost:27017 && set DB_NAME=omerta_intelligence && python mongodb_scraping_service.py"
-echo ✓ Scraping service starting on port 5001
+start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && set MONGO_URL=mongodb://localhost:27017 && set DB_NAME=omerta_intelligence && python mongodb_scraping_service_windows.py"
+echo ✓ Scraping service starting on port 5001 (VISIBLE browser for Cloudflare)
 echo.
 
 echo [5/5] Starting Frontend...
