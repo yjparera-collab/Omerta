@@ -242,6 +242,7 @@ export const IntelligenceProvider = ({ children }) => {
     systemStatus,
     targetFamilies,
     detectiveTargets,
+    trackedPlayers,
     lastUpdate,
     
     // Actions
