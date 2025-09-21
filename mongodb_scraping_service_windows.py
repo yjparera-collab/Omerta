@@ -443,20 +443,60 @@ def smart_list_worker(driver, data_manager, priority_queue):
                     if soup.text.strip().startswith('[') or soup.text.strip().startswith('{'):
                         users_data = json.loads(soup.text.strip())
                         
+                        # Handle both list and dict formats
                         if isinstance(users_data, list):
-                            data_manager.full_user_list = users_data
-                            print(f"[LIST_WORKER] ✅ Updated user list: {len(users_data)} players")
+                            # Direct list of players
+                            player_list = users_data
+                            print(f"[LIST_WORKER] ✅ Got list format: {len(player_list)} players")
+                        elif isinstance(users_data, dict):
+                            # Dictionary with players inside
+                            print(f"[LIST_WORKER] 📊 Got dict format, keys: {list(users_data.keys())}")
+                            
+                            # Try common keys for player data
+                            if 'users' in users_data:
+                                player_list = users_data['users']
+                            elif 'players' in users_data:
+                                player_list = users_data['players']
+                            elif 'data' in users_data:
+                                player_list = users_data['data']
+                            else:
+                                # Maybe the dict itself contains player data
+                                if 'user_id' in users_data:
+                                    # Single player object
+                                    player_list = [users_data]
+                                else:
+                                    # Try to extract all values if they look like players
+                                    player_list = []
+                                    for key, value in users_data.items():
+                                        if isinstance(value, dict) and 'user_id' in value:
+                                            player_list.append(value)
+                                        elif isinstance(value, list):
+                                            player_list.extend(value)
+                            
+                            print(f"[LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 'unknown'} players from dict")
+                        else:
+                            print(f"[LIST_WORKER] ⚠️ Unexpected data format: {type(users_data)}")
+                            player_list = []
+                        
+                        # Process the player list
+                        if isinstance(player_list, list) and len(player_list) > 0:
+                            data_manager.full_user_list = player_list
+                            print(f"[LIST_WORKER] ✅ Updated user list: {len(player_list)} players")
                             
                             # Cache basic user data
-                            for user in users_data:
+                            cached_count = 0
+                            for user in player_list:
                                 if isinstance(user, dict) and 'user_id' in user:
                                     data_manager.cache_player_data(
                                         user['user_id'], 
-                                        user.get('username', ''), 
+                                        user.get('username', f"Player_{user['user_id']}"), 
                                         user
                                     )
+                                    cached_count += 1
+                            
+                            print(f"[LIST_WORKER] 💾 Cached {cached_count} players in MongoDB")
                         else:
-                            print(f"[LIST_WORKER] ⚠️ Unexpected data format: {type(users_data)}")
+                            print(f"[LIST_WORKER] ❌ No valid player data found")
                             
                 except json.JSONDecodeError as e:
                     print(f"[LIST_WORKER] ❌ Failed to parse JSON: {e}")
