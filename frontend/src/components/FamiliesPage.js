@@ -13,33 +13,34 @@ const FamiliesPage = () => {
   useEffect(() => {
     const loadDetectiveData = async () => {
       setLoadingDetails(true);
-      const targets = [];
-      const details = {};
       
-      // Get players from selected families
-      const familyMembers = players.filter(p => selectedFamilies.has(p.f_name));
-      
-      for (const player of familyMembers.slice(0, 20)) { // Limit for performance
-        try {
-          const detail = await getPlayerDetails(player.id);
-          if (detail && (detail.kills > 0 || detail.bullets_shot?.total > 0)) {
-            targets.push(player);
-            details[player.id] = detail;
+      // Use tracked players directly from the intelligence hook
+      if (trackedPlayers.length > 0) {
+        setDetectiveTargets(trackedPlayers);
+        
+        // Load additional details for each tracked player
+        const details = {};
+        for (const tracked of trackedPlayers) {
+          const playerDetail = players.find(p => p.id === tracked.player_id || p.uname === tracked.username);
+          if (playerDetail) {
+            try {
+              const detail = await getPlayerDetails(playerDetail.id);
+              if (detail) {
+                details[playerDetail.id] = detail;
+              }
+            } catch (error) {
+              console.error(`Failed to load details for ${tracked.username}:`, error);
+            }
           }
-        } catch (error) {
-          console.error(`Failed to load details for ${player.uname}:`, error);
         }
+        setPlayerDetails(details);
       }
       
-      setDetectiveTargets(targets);
-      setPlayerDetails(details);
       setLoadingDetails(false);
     };
 
-    if (selectedFamilies.size > 0 && players.length > 0) {
-      loadDetectiveData();
-    }
-  }, [selectedFamilies, players, getPlayerDetails]);
+    loadDetectiveData();
+  }, [trackedPlayers, players, getPlayerDetails]);
 
   // Group players by family
   const familiesByName = useMemo(() => {
