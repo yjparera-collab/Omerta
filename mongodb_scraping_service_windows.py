@@ -195,51 +195,86 @@ class IntelligenceDataManager:
         except Exception as e:
             print(f"[ERROR] Adding notification: {e}")
 
-# --- BROWSER SETUP (Windows - VISIBLE BROWSER) ---
-def setup_browser_session(driver, url, worker_name):
-    """Setup browser session with Cloudflare bypass - VISIBLE BROWSER"""
+# --- IMPROVED BROWSER SETUP (Windows - VISIBLE with ANTI-DETECTION) ---
+def create_anti_detection_browser():
+    """Create anti-detection browser for Windows"""
+    print("[BROWSER] Setting up anti-detection browser voor Windows...")
+    
+    options = uc.ChromeOptions()
+    
+    # Basic stability options
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('--disable-extensions')
+    options.add_argument('--no-first-run')
+    options.add_argument('--disable-default-apps')
+    options.add_argument('--disable-infobars')
+    
+    # CRITICAL: Anti-detection measures (from working version)
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    
+    # User agent (working version)
+    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    
+    # Window size
+    options.add_argument('--window-size=1280,720')
+    
+    # Create driver
+    driver = uc.Chrome(options=options, version_main=None)
+    
+    # CRITICAL: Hide automation indicators (from working version)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    
+    print("[BROWSER] ✅ Anti-detection browser ready")
+    return driver
+
+def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
+    """Smart Cloudflare handler with improved detection (from working version)"""
+    print(f"\n[{worker_name}] Navigating to: {url}")
+    
     try:
-        print(f"[{worker_name}] Loading page: {url}")
         driver.get(url)
+        time.sleep(3)  # Initial wait
         
-        # Check for Cloudflare challenge
-        time.sleep(3)
         page_source = driver.page_source.lower()
         
+        # IMPROVED: Better Cloudflare detection (from working version)
         if "cloudflare" in page_source or "just a moment" in page_source or "checking your browser" in page_source:
             print(f"\n🔒 CLOUDFLARE GEDETECTEERD!")
-            print(f"📋 INSTRUCTIES:")
-            print(f"   1. Een Chrome browser venster is geopend")
-            print(f"   2. Wacht tot Cloudflare klaar is (5-10 seconden)")
-            print(f"   3. Als je een CAPTCHA ziet, los deze op")
-            print(f"   4. Laat het browser venster open")
-            print(f"   5. De scraper gaat automatisch verder")
-            print(f"\n⏳ Wachten op Cloudflare bypass...")
+            print(f"📋 ACTIES NODIG:")
+            print(f"   1. ✅ Chrome venster is zichtbaar")
+            print(f"   2. ⏳ Wacht 5-10 seconden voor automatische bypass")
+            print(f"   3. 🧩 Los CAPTCHA op als die verschijnt")
+            print(f"   4. 🚪 Laat het venster OPEN")
+            print(f"\n⏰ Maximaal {timeout} seconden wachttijd...")
             
-            # Wait longer for manual intervention
-            for i in range(30):
-                time.sleep(2)
+            start_time = time.time()
+            while time.time() - start_time < timeout:
                 try:
                     current_source = driver.page_source.lower()
-                    if "cloudflare" not in current_source and "just a moment" not in current_source:
-                        print(f"\n✅ Cloudflare gepasseerd! Scraper gaat verder...")
-                        break
+                    # IMPROVED: Better detection logic (from working version)
+                    if "cloudflare" not in current_source and "just a moment" not in current_source and "checking your browser" not in current_source:
+                        print(f"\n✅ CLOUDFLARE GEPASSEERD! Scraper gaat verder...")
+                        return True
                 except:
                     pass
                 
-                if i % 5 == 0:
-                    print(f"⏳ Nog steeds wachten... ({60-i*2} seconden over)")
-        
-        # Verify access
-        time.sleep(2)
-        current_source = driver.page_source
-        if "API" in current_source or "users" in current_source or len(current_source) > 100:
-            print(f"[{worker_name}] ✅ API toegang succesvol!")
+                time.sleep(2)
+                elapsed = int(time.time() - start_time)
+                if elapsed % 10 == 0 and elapsed > 0:
+                    print(f"⏳ {timeout - elapsed} seconden over...")
+            
+            print(f"⏰ Time-out bereikt. Proberen verder te gaan...")
+            return False
         else:
-            print(f"[{worker_name}] ⚠️ Waarschuwing: API pagina mogelijk niet correct geladen")
+            print(f"✅ Geen Cloudflare - direct toegang!")
+            return True
             
     except Exception as e:
-        print(f"[{worker_name}] Browser setup error: {e}")
+        print(f"[{worker_name}] Cloudflare handler error: {e}")
+        return False
 
 # --- Flask App Setup ---
 app = Flask(__name__)
