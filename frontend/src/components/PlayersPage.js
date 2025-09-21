@@ -135,7 +135,7 @@ const PlayersPage = () => {
     });
 
     return filtered;
-  }, [players, nameFilter, familyFilter, rankFilter, showDead, showTrackedOnly, sortField, sortDirection, playerDetails]);
+  }, [players, nameFilter, familyFilter, rankFilter, showDead, showTrackedOnly, sortField, sortDirection, playerDetails, trackedPlayers]);
 
   const handleSort = (field) => {
     if (sortField === field) {
