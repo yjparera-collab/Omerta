@@ -398,7 +398,7 @@ def get_players():
             data_manager.db.player_cache
             .find({}, {"_id": 0})
             .sort("last_updated", -1)
-            .limit(1000)
+            .limit(2000)  # Increased limit to show more players
         )
         
         # Parse player data
