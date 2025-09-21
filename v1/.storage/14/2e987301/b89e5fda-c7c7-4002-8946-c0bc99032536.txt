@@ -1,0 +1,110 @@
+$ cd /workspace && unzip -q uploads/Omerta.zip && ls -la
+total 42187
+drwxr-xr-x 224 root root 13324288 Sep 21  2025 .
+drwxr-xr-x   1 root root      138 Sep 21 03:07 ..
+drwxr-xr-x   2 root root     4096 Sep 21  2025 .MGXTools
+drwxr-xr-x  51 root root   212992 Sep 21  2025 .git
+-rw-r--r--   1 root root     1472 Sep 21  2025 .gitattributes
+-rw-r--r--   1 root root      476 Sep 21  2025 .gitignore
+-rw-r--r--   1 root root      189 Sep 21  2025 .timeline.json
+drwxrwxrwx 610 root root 17485824 Sep 21  2025 Omerta
+drwxr-xr-x   4 root root 12169216 Sep 21  2025 uploads
+$ cd /workspace && find . -name "optimized_app.py" -type f
+
+./Omerta/.storage/22/13aade25/optimized_app.py
+./Omerta/.storage/9/954e6a3c/optimized_app.py
+./Omerta/workspace/shadcn-ui/optimized_app.py
+$ cd /workspace && ls -la Omerta/
+
+total 63332
+drwxrwxrwx 610 root root 17485824 Sep 21  2025 .
+drwxr-xr-x 668 root root 29888512 Sep 21  2025 ..
+-rw-rw-rw-   1 root root        0 Sep 20 17:28 .lock
+drwxrwxrwx 125 root root   679936 Sep 20 17:28 .storage
+drwxrwxrwx   4 root root    24576 Sep  6 05:38 Info
+drwxrwxrwx   8 root root    40960 Sep  6 06:28 bot_app
+drwxrwxrwx  26 root root   102400 Sep 20 17:28 build
+drwxrwxrwx   7 root root    86016 Sep 20 17:28 cover
+drwxrwxrwx 443 root root 16543744 Sep 20 17:28 workspace
+$ cd /workspace && find Omerta -name "*.py" | grep -i app
+
+Omerta/.storage/1/66359506/app.py
+Omerta/.storage/22/13aade25/optimized_app.py
+Omerta/.storage/40/a20fd8f6/fixed_app.py
+Omerta/.storage/9/954e6a3c/optimized_app.py
+Omerta/bot_app/app.py
+Omerta/workspace/shadcn-ui/app.py
+Omerta/workspace/shadcn-ui/enhanced_app.py
+Omerta/workspace/shadcn-ui/fixed_app.py
+Omerta/workspace/shadcn-ui/optimized_app.py
+Omerta/workspace/uploads/app.py
+$ cd /workspace && find Omerta -name "*.py" | head -10
+
+Omerta/.storage/1/66359506/app.py
+Omerta/.storage/16/eac1a7c8/start.py
+Omerta/.storage/17/52f14cfb/performance_comparison.py
+Omerta/.storage/22/13aade25/optimized_app.py
+Omerta/.storage/27/76b0b6a2/quick_start.py
+Omerta/.storage/30/cdcadd5e/simple_dashboard.py
+Omerta/.storage/40/a20fd8f6/fixed_app.py
+Omerta/.storage/9/954e6a3c/optimized_app.py
+Omerta/Info/Bunubot.py
+Omerta/Info/api_monitor.py
+$ cd /workspace/Omerta/workspace/shadcn-ui && ls -la
+
+total 29746
+drwxrwxrwx 108 root root  6991872 Sep 20 18:17 .
+drwxrwxrwx 443 root root 16543744 Sep 20 17:28 ..
+-rw-rw-rw-   1 root root      253 Sep 20 17:28 .gitignore
+drwxrwxrwx   3 root root     8192 Sep 20 17:28 .mgx
+drwxrwxrwx   2 root root     4096 Sep 20 17:14 Nieuwe map
+-rw-rw-rw-   1 root root  6115072 Sep 20 17:27 Optimize File Upload Process (1).zip
+-rw-rw-rw-   1 root root    11665 Sep 20 17:28 Players.html
+-rw-rw-rw-   1 root root     3781 Sep 20 17:28 README.md
+-rw-rw-rw-   1 root root    31184 Sep 20 17:57 app.py
+-rw-rw-rw-   1 root root      414 Sep 20 17:28 components.json
+-rw-rw-rw-   1 root root    31009 Sep 20 18:41 enhanced_app.py
+-rw-rw-rw-   1 root root    36864 Sep 20 18:01 enhanced_cache.db
+-rw-rw-rw-   1 root root      789 Sep 20 17:28 eslint.config.js
+-rw-rw-rw-   1 root root     1836 Sep 20 17:28 families.html
+-rw-rw-rw-   1 root root     3058 Sep 20 17:18 fixed_ap1.py.txt
+-rw-rw-rw-   1 root root     3273 Sep 20 17:28 fixed_app.py
+-rw-rw-rw-   1 root root      841 Sep 20 17:28 index.html
+-rw-rw-rw-   1 root root      841 Sep 20 17:28 layout.html
+-rw-rw-rw-   1 root root    13557 Sep 20 18:45 optimized_app.py
+-rw-rw-rw-   1 root root     2954 Sep 20 17:28 package.json
+-rw-rw-rw-   1 root root     4895 Sep 20 17:28 performance_comparison.py
+-rw-rw-rw-   1 root root     2039 Sep 20 17:28 performance_report.txt
+-rw-rw-rw-   1 root root    12288 Sep 20 17:28 player_cache.db
+-rw-rw-rw-   1 root root   188572 Sep 20 17:28 pnpm-lock.yaml
+-rw-rw-rw-   1 root root       80 Sep 20 17:28 postcss.config.js
+drwxrwxrwx   4 root root    12288 Sep 20 17:28 public
+-rw-rw-rw-   1 root root     3649 Sep 20 17:28 quick_start.py
+-rw-rw-rw-   1 root root       83 Sep 20 17:28 requirements.txt
+-rw-rw-rw-   1 root root     6975 Sep 20 17:28 simple_dashboard.py
+drwxrwxrwx  66 root root   335872 Sep 20 17:28 src
+-rw-rw-rw-   1 root root     2158 Sep 20 17:28 start.py
+-rw-rw-rw-   1 root root     2836 Sep 20 17:28 tailwind.config.ts
+-rw-rw-rw-   1 root root      818 Sep 20 17:28 template_config.json
+drwxrwxrwx   5 root root    73728 Sep 20 18:42 templates
+-rw-rw-rw-   1 root root      652 Sep 20 17:28 tsconfig.app.json
+-rw-rw-rw-   1 root root      381 Sep 20 17:28 tsconfig.json
+-rw-rw-rw-   1 root root      481 Sep 20 17:28 tsconfig.node.json
+-rw-rw-rw-   1 root root      430 Sep 20 17:28 vite.config.ts
+$ cd /workspace/Omerta/workspace/shadcn-ui && find . -name "requirements.txt" -o -name "package.json" -o -name "*.md" | head -5
+
+./README.md
+./package.json
+./requirements.txt
+$ cd /workspace/Omerta/workspace/shadcn-ui/templates && ls -la
+
+total 6965
+drwxrwxrwx   5 root root   73728 Sep 20 18:42 .
+drwxrwxrwx 108 root root 6991872 Sep 20 18:17 ..
+-rw-rw-rw-   1 root root   35270 Sep 20 18:11 Players.html
+-rw-rw-rw-   1 root root   18876 Sep 20 17:28 families.html
+-rw-rw-rw-   1 root root   11618 Sep 20 17:28 layout.html
+$ cd /workspace && rm -rf Omerta/.storage Omerta/.git Omerta/build Omerta/cover Omerta/Info Omerta/bot_app
+
+$ cd /workspace && mv Omerta/workspace/shadcn-ui/* . && rm -rf Omerta
+

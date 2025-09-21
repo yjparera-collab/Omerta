@@ -1,0 +1,40 @@
+$ cd /workspace && unzip -q uploads/Omerta.zip && ls -la
+total 42187
+drwxr-xr-x 224 root root 13324288 Sep 21  2025 .
+drwxr-xr-x   1 root root      138 Sep 21 03:07 ..
+drwxr-xr-x   2 root root     4096 Sep 21  2025 .MGXTools
+drwxr-xr-x  51 root root   212992 Sep 21  2025 .git
+-rw-r--r--   1 root root     1472 Sep 21  2025 .gitattributes
+-rw-r--r--   1 root root      476 Sep 21  2025 .gitignore
+-rw-r--r--   1 root root      189 Sep 21  2025 .timeline.json
+drwxrwxrwx 610 root root 17485824 Sep 21  2025 Omerta
+drwxr-xr-x   4 root root 12169216 Sep 21  2025 uploads
+$ cd /workspace && find . -name "optimized_app.py" -type f
+
+./Omerta/.storage/22/13aade25/optimized_app.py
+./Omerta/.storage/9/954e6a3c/optimized_app.py
+./Omerta/workspace/shadcn-ui/optimized_app.py
+$ cd /workspace && ls -la Omerta/
+
+total 63332
+drwxrwxrwx 610 root root 17485824 Sep 21  2025 .
+drwxr-xr-x 668 root root 29888512 Sep 21  2025 ..
+-rw-rw-rw-   1 root root        0 Sep 20 17:28 .lock
+drwxrwxrwx 125 root root   679936 Sep 20 17:28 .storage
+drwxrwxrwx   4 root root    24576 Sep  6 05:38 Info
+drwxrwxrwx   8 root root    40960 Sep  6 06:28 bot_app
+drwxrwxrwx  26 root root   102400 Sep 20 17:28 build
+drwxrwxrwx   7 root root    86016 Sep 20 17:28 cover
+drwxrwxrwx 443 root root 16543744 Sep 20 17:28 workspace
+$ cd /workspace && find Omerta -name "*.py" | grep -i app
+
+Omerta/.storage/1/66359506/app.py
+Omerta/.storage/22/13aade25/optimized_app.py
+Omerta/.storage/40/a20fd8f6/fixed_app.py
+Omerta/.storage/9/954e6a3c/optimized_app.py
+Omerta/bot_app/app.py
+Omerta/workspace/shadcn-ui/app.py
+Omerta/workspace/shadcn-ui/enhanced_app.py
+Omerta/workspace/shadcn-ui/fixed_app.py
+Omerta/workspace/shadcn-ui/optimized_app.py
+Omerta/workspace/uploads/app.py

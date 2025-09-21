@@ -1,0 +1,702 @@
+{% extends 'layout.html' %}
+{% block title %}Combat Analytics{% endblock %}
+{% block content %}
+<style>
+    .analytics-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .analytics-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .analytics-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1rem;
+    }
+
+    .analytics-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.125rem;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .metric-card {
+        background: var(--bg-card);
+        border-radius: 1rem;
+        padding: 2rem;
+        border: 1px solid var(--border-color);
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+
+    .metric-value {
+        font-size: 3rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-label {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-change {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 1rem;
+        font-weight: bold;
+    }
+
+    .metric-change.positive {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--accent-green);
+    }
+
+    .metric-change.negative {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--accent-red);
+    }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .chart-card {
+        background: var(--bg-card);
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+
+    .chart-header {
+        background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary));
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .chart-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .chart-body {
+        padding: 2rem;
+        height: 400px;
+        position: relative;
+    }
+
+    .activity-feed {
+        background: var(--bg-card);
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+
+    .feed-header {
+        background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary));
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .feed-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .feed-body {
+        padding: 1.5rem;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--bg-tertiary);
+        border-radius: 0.75rem;
+        border-left: 4px solid var(--accent-blue);
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .activity-item:hover {
+        background: var(--bg-secondary);
+        transform: translateX(4px);
+    }
+
+    .activity-item.kill {
+        border-left-color: var(--accent-red);
+    }
+
+    .activity-item.shot {
+        border-left-color: var(--accent-yellow);
+    }
+
+    .activity-item.plating {
+        border-left-color: var(--accent-purple);
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .activity-icon.kill {
+        background: var(--accent-red);
+    }
+
+    .activity-icon.shot {
+        background: var(--accent-yellow);
+    }
+
+    .activity-icon.plating {
+        background: var(--accent-purple);
+    }
+
+    .activity-content {
+        flex: 1;
+    }
+
+    .activity-title {
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .activity-description {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .activity-time {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .filters-section {
+        background: var(--bg-card);
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+        padding: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .filters-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .filter-select, .filter-input {
+        padding: 0.75rem;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    .filter-select:focus, .filter-input:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .metrics-grid {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="analytics-container">
+    <!-- Header -->
+    <div class="analytics-header">
+        <h1 class="analytics-title">
+            <i class="fas fa-chart-line"></i>
+            Combat Analytics Center
+        </h1>
+        <p class="analytics-subtitle">
+            Real-time analysis of kill trends, shooting patterns, and tactical movements. 
+            Gain strategic insights from combat data patterns.
+        </p>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <span class="metric-value" id="total-kills">0</span>
+            <div class="metric-label">Total Kills (24h)</div>
+            <div class="metric-change positive" id="kills-change">+0</div>
+        </div>
+        <div class="metric-card">
+            <span class="metric-value" id="total-shots">0</span>
+            <div class="metric-label">Total Shots (24h)</div>
+            <div class="metric-change positive" id="shots-change">+0</div>
+        </div>
+        <div class="metric-card">
+            <span class="metric-value" id="active-shooters">0</span>
+            <div class="metric-label">Active Shooters</div>
+            <div class="metric-change positive" id="shooters-change">+0</div>
+        </div>
+        <div class="metric-card">
+            <span class="metric-value" id="plating-drops">0</span>
+            <div class="metric-label">Plating Drops</div>
+            <div class="metric-change negative" id="plating-change">-0</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filters-title">
+            <i class="fas fa-filter"></i>
+            <span>Analytics Filters</span>
+        </div>
+        <div class="filters-grid">
+            <div class="filter-group">
+                <label class="filter-label">Time Range</label>
+                <select id="time-range" class="filter-select">
+                    <option value="1h">Last Hour</option>
+                    <option value="6h">Last 6 Hours</option>
+                    <option value="24h" selected>Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Target Family</label>
+                <select id="family-filter" class="filter-select">
+                    <option value="">All Families</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Activity Type</label>
+                <select id="activity-filter" class="filter-select">
+                    <option value="">All Activities</option>
+                    <option value="kills">Kills Only</option>
+                    <option value="shots">Shots Only</option>
+                    <option value="plating">Plating Changes</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Minimum Kills</label>
+                <input type="number" id="min-kills" class="filter-input" placeholder="0" min="0">
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <i class="fas fa-crosshairs"></i>
+                    <span>Kills Over Time</span>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="kills-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Shots Fired Trends</span>
+                </div>
+            </div>
+            <div class="chart-body">
+                <canvas id="shots-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="activity-feed">
+        <div class="feed-header">
+            <div class="feed-title">
+                <i class="fas fa-stream"></i>
+                <span>Live Combat Activity</span>
+            </div>
+        </div>
+        <div class="feed-body" id="activity-feed">
+            <!-- Activity items will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Global variables for charts
+    let killsChart, shotsChart;
+    let analyticsData = {
+        kills: [],
+        shots: [],
+        activities: []
+    };
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCharts();
+        loadAnalyticsData();
+        setupFilters();
+        
+        // Update data every 30 seconds
+        setInterval(loadAnalyticsData, 30000);
+    });
+
+    function initializeCharts() {
+        // Kills Chart
+        const killsCtx = document.getElementById('kills-chart').getContext('2d');
+        killsChart = new Chart(killsCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Kills',
+                    data: [],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#ffffff'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#b8c5d6'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#b8c5d6'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Shots Chart
+        const shotsCtx = document.getElementById('shots-chart').getContext('2d');
+        shotsChart = new Chart(shotsCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Shots Fired',
+                    data: [],
+                    backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                    borderColor: '#f59e0b',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#ffffff'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#b8c5d6'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#b8c5d6'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function loadAnalyticsData() {
+        try {
+            // Load analytics data from API
+            const response = await fetch('/api/analytics');
+            if (response.ok) {
+                const data = await response.json();
+                analyticsData = data;
+                updateMetrics(data);
+                updateCharts(data);
+                updateActivityFeed(data.activities);
+            } else {
+                // Generate mock data for demonstration
+                generateMockData();
+            }
+        } catch (error) {
+            console.error('Failed to load analytics data:', error);
+            generateMockData();
+        }
+    }
+
+    function generateMockData() {
+        // Generate mock data for demonstration
+        const now = new Date();
+        const mockData = {
+            kills: [],
+            shots: [],
+            activities: []
+        };
+
+        // Generate 24 hours of mock data
+        for (let i = 23; i >= 0; i--) {
+            const time = new Date(now.getTime() - (i * 60 * 60 * 1000));
+            mockData.kills.push({
+                time: time.toISOString(),
+                value: Math.floor(Math.random() * 10) + (i < 6 ? 15 : 5)
+            });
+            mockData.shots.push({
+                time: time.toISOString(),
+                value: Math.floor(Math.random() * 50) + (i < 6 ? 100 : 20)
+            });
+        }
+
+        // Generate mock activities
+        const activities = [
+            { type: 'kill', player: 'PlayerX', target: 'PlayerY', family: 'Anarchy', time: '2 minutes ago' },
+            { type: 'shot', player: 'SniperZ', shots: 25, family: 'Conflict', time: '5 minutes ago' },
+            { type: 'plating', player: 'TankA', from: 'High', to: 'None', family: 'Righelli', time: '8 minutes ago' },
+            { type: 'kill', player: 'AssassinB', target: 'VictimC', family: 'Faffie', time: '12 minutes ago' },
+            { type: 'shot', player: 'GunnerD', shots: 15, family: 'Anarchy', time: '15 minutes ago' }
+        ];
+
+        mockData.activities = activities;
+        analyticsData = mockData;
+        
+        updateMetrics(mockData);
+        updateCharts(mockData);
+        updateActivityFeed(activities);
+    }
+
+    function updateMetrics(data) {
+        const totalKills = data.kills.reduce((sum, item) => sum + item.value, 0);
+        const totalShots = data.shots.reduce((sum, item) => sum + item.value, 0);
+        const activeShooters = Math.floor(totalShots / 20);
+        const platingDrops = data.activities.filter(a => a.type === 'plating').length;
+
+        document.getElementById('total-kills').textContent = totalKills;
+        document.getElementById('total-shots').textContent = totalShots;
+        document.getElementById('active-shooters').textContent = activeShooters;
+        document.getElementById('plating-drops').textContent = platingDrops;
+
+        // Update change indicators (mock values)
+        document.getElementById('kills-change').textContent = `+${Math.floor(totalKills * 0.1)}`;
+        document.getElementById('shots-change').textContent = `+${Math.floor(totalShots * 0.05)}`;
+        document.getElementById('shooters-change').textContent = `+${Math.floor(activeShooters * 0.2)}`;
+        document.getElementById('plating-change').textContent = `-${platingDrops}`;
+    }
+
+    function updateCharts(data) {
+        // Update kills chart
+        const killsLabels = data.kills.map(item => new Date(item.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+        const killsValues = data.kills.map(item => item.value);
+        
+        killsChart.data.labels = killsLabels;
+        killsChart.data.datasets[0].data = killsValues;
+        killsChart.update();
+
+        // Update shots chart
+        const shotsLabels = data.shots.map(item => new Date(item.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+        const shotsValues = data.shots.map(item => item.value);
+        
+        shotsChart.data.labels = shotsLabels;
+        shotsChart.data.datasets[0].data = shotsValues;
+        shotsChart.update();
+    }
+
+    function updateActivityFeed(activities) {
+        const feedContainer = document.getElementById('activity-feed');
+        feedContainer.innerHTML = '';
+
+        activities.forEach(activity => {
+            const activityElement = createActivityElement(activity);
+            feedContainer.appendChild(activityElement);
+        });
+    }
+
+    function createActivityElement(activity) {
+        const div = document.createElement('div');
+        div.className = `activity-item ${activity.type}`;
+
+        let iconClass, title, description;
+        
+        switch(activity.type) {
+            case 'kill':
+                iconClass = 'fa-skull';
+                title = `${activity.player} eliminated ${activity.target}`;
+                description = `Combat kill confirmed in ${activity.family}`;
+                break;
+            case 'shot':
+                iconClass = 'fa-bullseye';
+                title = `${activity.player} fired ${activity.shots} shots`;
+                description = `Heavy shooting activity detected in ${activity.family}`;
+                break;
+            case 'plating':
+                iconClass = 'fa-shield-alt';
+                title = `${activity.player} plating changed`;
+                description = `Plating dropped from ${activity.from} to ${activity.to} in ${activity.family}`;
+                break;
+        }
+
+        div.innerHTML = `
+            <div class="activity-icon ${activity.type}">
+                <i class="fas ${iconClass}"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-title">${title}</div>
+                <div class="activity-description">${description}</div>
+                <div class="activity-time">${activity.time}</div>
+            </div>
+        `;
+
+        return div;
+    }
+
+    function setupFilters() {
+        // Add event listeners to filters
+        document.getElementById('time-range').addEventListener('change', applyFilters);
+        document.getElementById('family-filter').addEventListener('change', applyFilters);
+        document.getElementById('activity-filter').addEventListener('change', applyFilters);
+        document.getElementById('min-kills').addEventListener('input', applyFilters);
+    }
+
+    function applyFilters() {
+        // Filter logic would be implemented here
+        console.log('Filters applied');
+        // For now, just reload data
+        loadAnalyticsData();
+    }
+
+    // Add some animation effects
+    function animateMetrics() {
+        const metrics = document.querySelectorAll('.metric-value');
+        metrics.forEach((metric, index) => {
+            setTimeout(() => {
+                metric.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    metric.style.transform = 'scale(1)';
+                }, 200);
+            }, index * 100);
+        });
+    }
+
+    // Animate metrics every 30 seconds
+    setInterval(animateMetrics, 30000);
+</script>
+
+{% endblock %}

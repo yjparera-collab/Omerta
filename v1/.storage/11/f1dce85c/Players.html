@@ -1,0 +1,1063 @@
+{% extends 'layout.html' %}
+{% block title %}Tactical Overview{% endblock %}
+{% block content %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 350px 1fr 400px;
+        gap: 2rem;
+        height: calc(100vh - 200px);
+    }
+
+    .panel {
+        background: var(--bg-card);
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .panel-header {
+        background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary));
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .panel-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .panel-badge {
+        background: var(--accent-blue);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .panel-content {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Control Panel */
+    .filter-section {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .filter-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .filter-input, .filter-select {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .checkbox-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        transition: background 0.3s ease;
+    }
+
+    .checkbox-item:hover {
+        background: var(--bg-tertiary);
+    }
+
+    .checkbox-item input {
+        accent-color: var(--accent-blue);
+    }
+
+    /* Player List */
+    .player-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+    .family-group {
+        margin-bottom: 1rem;
+    }
+
+    .family-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: var(--bg-tertiary);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid var(--border-color);
+    }
+
+    .family-header:hover {
+        background: var(--bg-secondary);
+        border-color: var(--accent-blue);
+    }
+
+    .family-name {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+    }
+
+    .family-count {
+        background: var(--accent-blue);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+    }
+
+    .family-players {
+        display: none;
+        padding: 0.5rem 0 0 2rem;
+        border-left: 2px solid var(--border-color);
+        margin-left: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .family-players.expanded {
+        display: block;
+    }
+
+    .player-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        transition: background 0.3s ease;
+        margin-bottom: 0.25rem;
+    }
+
+    .player-item:hover {
+        background: var(--bg-tertiary);
+    }
+
+    /* Main Overview Table */
+    .table-container {
+        flex: 1;
+        overflow: auto;
+        padding: 1rem;
+    }
+
+    .tactical-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .tactical-table th {
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        padding: 1rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid var(--border-color);
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.3s ease;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .tactical-table th:hover {
+        background: var(--bg-tertiary);
+        color: var(--accent-blue);
+    }
+
+    .tactical-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+    }
+
+    .tactical-table tr:hover {
+        background: var(--bg-secondary);
+    }
+
+    .tactical-table tr.clickable-row {
+        cursor: pointer;
+    }
+
+    .tactical-table tr.clickable-row:hover {
+        background: var(--bg-tertiary);
+        border-left: 3px solid var(--accent-blue);
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .status-alive {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--accent-green);
+    }
+
+    .status-dead {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--accent-red);
+    }
+
+    .cache-status {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .cache-cached {
+        color: var(--accent-green);
+    }
+
+    .cache-missing {
+        color: var(--accent-red);
+    }
+
+    /* Player Detail Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+        background: var(--bg-card);
+        margin: 2% auto;
+        padding: 0;
+        border-radius: 1rem;
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+        background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary));
+        padding: 2rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .close {
+        color: var(--text-muted);
+        font-size: 2rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.3s ease;
+    }
+
+    .close:hover {
+        color: var(--accent-red);
+    }
+
+    .modal-body {
+        padding: 2rem;
+    }
+
+    .player-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-card {
+        background: var(--bg-tertiary);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .info-card h4 {
+        color: var(--accent-blue);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .info-label {
+        color: var(--text-secondary);
+    }
+
+    .info-value {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 3rem;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--border-color);
+        border-top: 4px solid var(--accent-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Activity Feed */
+    .activity-section {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .notification-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: var(--bg-tertiary);
+        border-radius: 0.5rem;
+        border-left: 4px solid var(--accent-blue);
+        margin-bottom: 0.75rem;
+    }
+
+    .notification-item.warning {
+        border-left-color: var(--accent-yellow);
+    }
+
+    .notification-item.critical {
+        border-left-color: var(--accent-red);
+    }
+
+    .notification-icon {
+        color: var(--accent-blue);
+        margin-top: 0.125rem;
+    }
+
+    .notification-content {
+        flex: 1;
+    }
+
+    .notification-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .notification-time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    .log-panel {
+        flex: 1;
+        background: var(--bg-primary);
+        padding: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.75rem;
+        overflow-y: auto;
+        color: var(--text-secondary);
+    }
+
+    .log-entry {
+        margin-bottom: 0.5rem;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid rgba(107, 114, 128, 0.1);
+    }
+
+    .log-timestamp {
+        color: var(--accent-blue);
+    }
+
+    .log-level-info {
+        color: var(--accent-green);
+    }
+
+    .log-level-warning {
+        color: var(--accent-yellow);
+    }
+
+    .log-level-error {
+        color: var(--accent-red);
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
+            height: auto;
+        }
+
+        .panel {
+            max-height: 600px;
+        }
+
+        .modal-content {
+            width: 95%;
+            margin: 5% auto;
+        }
+    }
+</style>
+
+<div class="dashboard-grid">
+    <!-- Control Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-sliders-h"></i>
+                <span>Control Center</span>
+            </div>
+            <div class="panel-badge">ACTIVE</div>
+        </div>
+        <div class="panel-content">
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label class="filter-label" for="search-name">
+                        <i class="fas fa-search"></i> Search Players
+                    </label>
+                    <input type="text" id="search-name" class="filter-input" placeholder="Enter player name...">
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label" for="filter-family">
+                        <i class="fas fa-users"></i> Filter by Family
+                    </label>
+                    <select id="filter-family" class="filter-select">
+                        <option value="">All Families</option>
+                        <option value="[Geen Familie]">[No Family]</option>
+                        {% for family in families %}
+                        <option value="{{ family }}">{{ family }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label" for="filter-rank">
+                        <i class="fas fa-medal"></i> Filter by Rank
+                    </label>
+                    <select id="filter-rank" class="filter-select">
+                        <option value="">All Ranks</option>
+                        {% for rank in ranks %}
+                        <option value="{{ rank }}">{{ rank }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label class="filter-label">
+                        <i class="fas fa-filter"></i> Quick Filters
+                    </label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="filter-capos">
+                            <span>Capos Only</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="filter-dead">
+                            <span>Dead Players</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-header" style="padding: 1rem 1.5rem;">
+                <div class="panel-title">
+                    <i class="fas fa-crosshairs"></i>
+                    <span>Target Selection</span>
+                </div>
+            </div>
+            <div class="player-list" id="player-list-container">
+                <!-- Player list will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Overview -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-chess-board"></i>
+                <span>Tactical Overview</span>
+            </div>
+            <div class="panel-badge" id="player-count">0 Players</div>
+        </div>
+        <div class="panel-content">
+            <div class="table-container">
+                <table class="tactical-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="position">
+                                <i class="fas fa-sort"></i> Rank
+                            </th>
+                            <th data-sort="uname">
+                                <i class="fas fa-sort"></i> Player
+                            </th>
+                            <th data-sort="f_name">
+                                <i class="fas fa-sort"></i> Family
+                            </th>
+                            <th data-sort="rank_name">
+                                <i class="fas fa-sort"></i> Title
+                            </th>
+                            <th data-sort="plating">
+                                <i class="fas fa-sort"></i> Plating
+                            </th>
+                            <th>Status</th>
+                            <th>Intel</th>
+                        </tr>
+                    </thead>
+                    <tbody id="player-table-body">
+                        <!-- Table content will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <i class="fas fa-bell"></i>
+                <span>Intelligence Feed</span>
+            </div>
+            <div class="panel-badge pulse">LIVE</div>
+        </div>
+        <div class="panel-content">
+            <div class="activity-section">
+                <div class="notification-item critical">
+                    <i class="fas fa-exclamation-triangle notification-icon"></i>
+                    <div class="notification-content">
+                        <div class="notification-title">High Priority Target Detected</div>
+                        <div class="notification-time">2 minutes ago</div>
+                    </div>
+                </div>
+                
+                <div class="notification-item warning">
+                    <i class="fas fa-user-times notification-icon"></i>
+                    <div class="notification-content">
+                        <div class="notification-title">Player Status Changed</div>
+                        <div class="notification-time">5 minutes ago</div>
+                    </div>
+                </div>
+                
+                <div class="notification-item">
+                    <i class="fas fa-sync-alt notification-icon"></i>
+                    <div class="notification-content">
+                        <div class="notification-title">Data Sync Complete</div>
+                        <div class="notification-time">8 minutes ago</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-header" style="padding: 1rem 1.5rem;">
+                <div class="panel-title">
+                    <i class="fas fa-terminal"></i>
+                    <span>System Log</span>
+                </div>
+            </div>
+            <div class="log-panel" id="system-log">
+                <div class="log-entry">
+                    <span class="log-timestamp">[16:42:15]</span>
+                    <span class="log-level-info">[INFO]</span>
+                    System initialized successfully
+                </div>
+                <div class="log-entry">
+                    <span class="log-timestamp">[16:42:18]</span>
+                    <span class="log-level-info">[INFO]</span>
+                    Smart change detection active
+                </div>
+                <div class="log-entry">
+                    <span class="log-timestamp">[16:42:20]</span>
+                    <span class="log-level-info">[INFO]</span>
+                    Batch processing enabled (5 players/batch)
+                </div>
+                <div class="log-entry">
+                    <span class="log-timestamp">[16:42:25]</span>
+                    <span class="log-level-info">[INFO]</span>
+                    SQLite cache initialized
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Player Detail Modal -->
+<div id="playerModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i class="fas fa-user-secret"></i>
+                <span id="modal-player-name">Player Details</span>
+            </div>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Store the complete, unfiltered list of players
+    const ALL_USERS = {{ all_users|tojson }};
+    let filteredUsers = [...ALL_USERS];
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners to all filters
+        document.getElementById('search-name').addEventListener('keyup', applyFilters);
+        document.getElementById('filter-family').addEventListener('change', applyFilters);
+        document.getElementById('filter-rank').addEventListener('change', applyFilters);
+        document.getElementById('filter-capos').addEventListener('change', applyFilters);
+        document.getElementById('filter-dead').addEventListener('change', applyFilters);
+
+        // Add event listeners to table headers for sorting
+        document.querySelectorAll('.tactical-table th[data-sort]').forEach(header => {
+            header.addEventListener('click', () => sortTable(header.dataset.sort));
+        });
+
+        // Modal functionality
+        setupModal();
+
+        // Initial render
+        applyFilters();
+        startSystemLog();
+    });
+
+    function applyFilters() {
+        const searchName = document.getElementById('search-name').value.toLowerCase();
+        const selectedFamily = document.getElementById('filter-family').value;
+        const selectedRank = document.getElementById('filter-rank').value;
+        const showOnlyCapos = document.getElementById('filter-capos').checked;
+        const showOnlyDead = document.getElementById('filter-dead').checked;
+
+        filteredUsers = ALL_USERS.filter(user => {
+            const nameMatch = user.uname.toLowerCase().includes(searchName);
+            const familyMatch = !selectedFamily || (user.f_name || '[Geen Familie]') === selectedFamily;
+            const rankMatch = !selectedRank || user.rank_name === selectedRank;
+            const capoMatch = !showOnlyCapos || user.f_isCapo === '1';
+            const deadMatch = !showOnlyDead || user.status === '3';
+            
+            return nameMatch && familyMatch && rankMatch && capoMatch && deadMatch;
+        });
+
+        renderPlayerList(filteredUsers);
+        renderPlayerTable(filteredUsers);
+        updatePlayerCount(filteredUsers.length);
+    }
+
+    function renderPlayerList(users) {
+        const container = document.getElementById('player-list-container');
+        container.innerHTML = '';
+
+        // Group players by family
+        const families = {};
+        users.forEach(user => {
+            const familyName = user.f_name || '[No Family]';
+            if (!families[familyName]) {
+                families[familyName] = [];
+            }
+            families[familyName].push(user);
+        });
+
+        // Create expandable family groups
+        for (const familyName in families) {
+            const familyUsers = families[familyName];
+            const familyGroup = document.createElement('div');
+            familyGroup.className = 'family-group';
+            
+            const header = document.createElement('div');
+            header.className = 'family-header';
+            header.innerHTML = `
+                <div class="family-name">
+                    <i class="fas fa-caret-right" id="caret-${familyName}"></i>
+                    <span>${familyName}</span>
+                </div>
+                <div class="family-count">${familyUsers.length}</div>
+            `;
+            
+            const playersDiv = document.createElement('div');
+            playersDiv.className = 'family-players';
+            playersDiv.id = `players-${familyName}`;
+
+            familyUsers.forEach(user => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'player-item';
+                playerItem.innerHTML = `
+                    <input type="checkbox" name="players" value="${user.id}">
+                    <span>${user.position}. ${user.uname}</span>
+                `;
+                playersDiv.appendChild(playerItem);
+            });
+
+            header.onclick = () => toggleFamilyGroup(familyName);
+            
+            familyGroup.appendChild(header);
+            familyGroup.appendChild(playersDiv);
+            container.appendChild(familyGroup);
+        }
+    }
+
+    function toggleFamilyGroup(familyName) {
+        const playersDiv = document.getElementById(`players-${familyName}`);
+        const caret = document.getElementById(`caret-${familyName}`);
+        
+        if (playersDiv.classList.contains('expanded')) {
+            playersDiv.classList.remove('expanded');
+            caret.className = 'fas fa-caret-right';
+        } else {
+            playersDiv.classList.add('expanded');
+            caret.className = 'fas fa-caret-down';
+        }
+    }
+
+    function renderPlayerTable(users) {
+        const tableBody = document.getElementById('player-table-body');
+        tableBody.innerHTML = '';
+
+        users.forEach(user => {
+            const row = tableBody.insertRow();
+            row.className = 'clickable-row';
+            row.onclick = () => showPlayerDetails(user.uname);
+            
+            // Check cache status
+            checkCacheStatus(user.id).then(cacheInfo => {
+                row.innerHTML = `
+                    <td><strong>#${user.position}</strong></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <strong>${user.uname}</strong>
+                            ${user.f_isCapo === '1' ? '<i class="fas fa-crown" style="color: var(--accent-yellow);" title="Capo"></i>' : ''}
+                        </div>
+                    </td>
+                    <td>${user.f_name || '<em>No Family</em>'}</td>
+                    <td>${user.rank_name}</td>
+                    <td><strong>${user.plating}</strong></td>
+                    <td>
+                        <span class="status-badge ${user.status === '2' ? 'status-alive' : 'status-dead'}">
+                            ${user.status === '2' ? 'Alive' : 'Dead'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="cache-status ${cacheInfo.cached ? 'cache-cached' : 'cache-missing'}">
+                            <i class="fas ${cacheInfo.cached ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+                            <span>${cacheInfo.cached ? 'Cached' : 'No Intel'}</span>
+                        </div>
+                    </td>
+                `;
+            });
+        });
+    }
+
+    async function checkCacheStatus(playerId) {
+        try {
+            const response = await fetch(`/api/player-details/${playerId}`);
+            return { cached: response.ok };
+        } catch (error) {
+            return { cached: false };
+        }
+    }
+
+    function updatePlayerCount(count) {
+        document.getElementById('player-count').textContent = `${count} Players`;
+    }
+
+    // Sorting functionality - altijd positie 1 is hoogste
+    let sortDirection = {};
+    function sortTable(column) {
+        const direction = (sortDirection[column] = sortDirection[column] === 'asc' ? 'desc' : 'asc');
+        
+        filteredUsers.sort((a, b) => {
+            let valA = a[column];
+            let valB = b[column];
+
+            // Voor positie: 1 is altijd het hoogste, dan 2, 3, etc. 0 betekent geen positie
+            if (column === 'position') {
+                if (valA === 0) valA = 999999; // Geen positie naar het einde
+                if (valB === 0) valB = 999999;
+                
+                // Voor positie willen we standaard ascending (1, 2, 3...)
+                if (direction === 'asc') {
+                    return valA - valB;
+                } else {
+                    return valB - valA;
+                }
+            }
+            
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderPlayerTable(filteredUsers);
+    }
+
+    // Player detail modal functionality
+    function setupModal() {
+        const modal = document.getElementById('playerModal');
+        const closeBtn = document.querySelector('.close');
+
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    }
+
+    async function showPlayerDetails(username) {
+        const modal = document.getElementById('playerModal');
+        const modalTitle = document.getElementById('modal-player-name');
+        const modalBody = document.getElementById('modal-body');
+        
+        modalTitle.textContent = `${username} - Intelligence Report`;
+        modal.style.display = 'block';
+        
+        // Show loading spinner
+        modalBody.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">Loading intelligence data...</p>
+            </div>
+        `;
+        
+        try {
+            const response = await fetch(`/api/player-full/${username}`);
+            
+            if (response.ok) {
+                const playerData = await response.json();
+                renderPlayerDetails(playerData);
+            } else {
+                modalBody.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--accent-yellow); margin-bottom: 1rem;"></i>
+                        <h3>No Intelligence Available</h3>
+                        <p style="color: var(--text-secondary);">This player's detailed information is not yet cached. The system will gather this data during the next scan cycle.</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <i class="fas fa-times-circle" style="font-size: 3rem; color: var(--accent-red); margin-bottom: 1rem;"></i>
+                    <h3>Error Loading Data</h3>
+                    <p style="color: var(--text-secondary);">Failed to load player intelligence: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    function renderPlayerDetails(data) {
+        const modalBody = document.getElementById('modal-body');
+        
+        modalBody.innerHTML = `
+            <div class="player-info-grid">
+                <div class="info-card">
+                    <h4><i class="fas fa-user"></i> Basic Information</h4>
+                    <div class="info-item">
+                        <span class="info-label">Username:</span>
+                        <span class="info-value">${data.username || 'N/A'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Rank:</span>
+                        <span class="info-value">${data.rank || 'N/A'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Family:</span>
+                        <span class="info-value">${data.family || 'Independent'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">${data.status === '2' ? 'Alive' : 'Dead'}</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h4><i class="fas fa-crosshairs"></i> Combat Statistics</h4>
+                    <div class="info-item">
+                        <span class="info-label">Kills:</span>
+                        <span class="info-value">${data.kills || '0'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Total Shots:</span>
+                        <span class="info-value">${data.bullets_shot?.total || '0'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Shots Hit:</span>
+                        <span class="info-value">${data.bullets_shot?.hit || '0'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Accuracy:</span>
+                        <span class="info-value">${data.bullets_shot?.total ? Math.round((data.bullets_shot.hit / data.bullets_shot.total) * 100) + '%' : 'N/A'}</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h4><i class="fas fa-shield-alt"></i> Defense Stats</h4>
+                    <div class="info-item">
+                        <span class="info-label">Plating:</span>
+                        <span class="info-value">${data.plating || 'N/A'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Bullets Fired At:</span>
+                        <span class="info-value">${data.bullets_fired_at || '0'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Times Shot:</span>
+                        <span class="info-value">${data.times_shot || '0'}</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h4><i class="fas fa-chart-line"></i> Progress</h4>
+                    <div class="info-item">
+                        <span class="info-label">Experience:</span>
+                        <span class="info-value">${data.experience || '0'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Money:</span>
+                        <span class="info-value">$${data.money ? parseInt(data.money).toLocaleString() : '0'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Bullets:</span>
+                        <span class="info-value">${data.bullets || '0'}</span>
+                    </div>
+                </div>
+            </div>
+
+            ${data.crimes ? `
+            <div class="info-card" style="margin-top: 1rem;">
+                <h4><i class="fas fa-mask"></i> Crime Statistics</h4>
+                <div class="info-item">
+                    <span class="info-label">Total Crimes:</span>
+                    <span class="info-value">${data.crimes.total || '0'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Success Rate:</span>
+                    <span class="info-value">${data.crimes.total ? Math.round((data.crimes.success / data.crimes.total) * 100) + '%' : 'N/A'}</span>
+                </div>
+            </div>
+            ` : ''}
+        `;
+    }
+
+    // System log simulation
+    function startSystemLog() {
+        const logPanel = document.getElementById('system-log');
+        
+        function addLogEntry(message, level = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-level-${level}">[${level.toUpperCase()}]</span>
+                ${message}
+            `;
+            logPanel.appendChild(entry);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+        
+        // Simulate periodic log entries
+        setInterval(() => {
+            const messages = [
+                'Scanning target families for changes...',
+                'Cache hit rate: 87%',
+                'Batch processing 5 players...',
+                'Smart change detection active',
+                'System performance optimal'
+            ];
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            addLogEntry(randomMessage);
+        }, 15000);
+    }
+</script>
+
+{% endblock %}
