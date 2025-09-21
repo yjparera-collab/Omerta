@@ -60,7 +60,7 @@ const PlayersPage = () => {
     });
   }, [players]);
 
-  // Filter and sort players
+  // Filter and sort players  
   const filteredPlayers = useMemo(() => {
     let filtered = players.filter(player => {
       if (nameFilter && !player.uname?.toLowerCase().includes(nameFilter.toLowerCase())) {
@@ -73,6 +73,10 @@ const PlayersPage = () => {
         return false;
       }
       if (!showDead && player.status === 3) {
+        return false;
+      }
+      // NEW: Filter for tracked players only
+      if (showTrackedOnly && !playerDetails[player.id]) {
         return false;
       }
       return true;
