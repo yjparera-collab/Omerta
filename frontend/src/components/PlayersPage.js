@@ -18,9 +18,9 @@ const PlayersPage = () => {
   const [playerDetails, setPlayerDetails] = useState({});
 
   // Helper: safely coerce to number (including numeric strings)
-  const toNumber = (val, fallback = undefined) => {
+  const toNumber = (val) => {
     const n = Number(val);
-    return Number.isFinite(n) ? n : fallback;
+    return Number.isFinite(n) ? n : undefined;
   };
 
   // Load player details for wealth/kills/shots display
@@ -28,7 +28,6 @@ const PlayersPage = () => {
     const loadPlayerDetails = async () => {
       const details = {};
       // Prefetch a reasonable chunk of currently available players to improve hit-rate
-      // Note: We keep it modest to avoid spikes on slower environments
       const prefetchList = players.slice(0, 150);
       for (const player of prefetchList) {
         try {
@@ -161,9 +160,11 @@ const PlayersPage = () => {
           break;
         }
         case 'wealth':
-          // Sort by wealth using details if available; fallback 0
-          aVal = toNumber(playerDetails[a.id]?.wealth, -1);
-          bVal = toNumber(playerDetails[b.id]?.wealth, -1);
+          // Sort by wealth using details if available; fallback -1 to push unknowns
+          const aDetailWealth = toNumber(playerDetails[a.id]?.wealth);
+          const bDetailWealth = toNumber(playerDetails[b.id]?.wealth);
+          aVal = aDetailWealth ?? -1;
+          bVal = bDetailWealth ?? -1;
           break;
         case 'name':
           aVal = a.uname || '';
@@ -283,33 +284,33 @@ const PlayersPage = () => {
     return { text: plating, class: 'text-gray-300', level: 1 };
   };
 
-  // Normalize row stats using details + fallbacks from general list
+  // Normalize row stats using tracked data (preferred) + details, with plating fallback to general list
   const computeRowStats = (player) => {
     const details = playerDetails[player.id] || {};
+    const tracked = (trackedPlayers || []).find(tp => tp.username === player.uname);
 
     // Kills
-    const kills = toNumber(details.kills, undefined);
+    const killsFromTracked = toNumber(tracked?.kills);
+    const killsFromDetails = toNumber(details?.kills);
+    const kills = killsFromTracked ?? killsFromDetails; // undefined when both missing
 
-    // Shots: bullets_shot can be object {total} or numeric
-    let shotsVal = undefined;
-    const bs = details.bullets_shot;
+    // Shots: bullets_shot may be number or object {total}
+    const shotsFromTracked = toNumber(tracked?.shots ?? tracked?.bullets_shot);
+    let shotsFromDetails;
+    const bs = details?.bullets_shot;
     if (bs !== undefined && bs !== null) {
-      if (typeof bs === 'object') shotsVal = toNumber(bs.total, 0);
-      else shotsVal = toNumber(bs, 0);
+      if (typeof bs === 'object') shotsFromDetails = toNumber(bs.total);
+      else shotsFromDetails = toNumber(bs);
     }
+    const shots = shotsFromTracked ?? shotsFromDetails; // undefined when missing
 
     // Wealth
-    const wealthVal = toNumber(details.wealth, undefined);
+    const wealth = toNumber(tracked?.wealth ?? details?.wealth);
 
-    // Plating: prefer details, fallback to general list
-    const platingVal = details.plating ?? player.plating ?? null;
+    // Plating: prefer details -> general list -> tracked
+    const plating = details?.plating ?? player.plating ?? tracked?.plating ?? null;
 
-    return {
-      kills: kills ?? 0, // show 0 if zero, N/A only when truly missing
-      shots: shotsVal ?? 0,
-      wealth: wealthVal,
-      plating: platingVal,
-    };
+    return { kills, shots, wealth, plating };
   };
 
   return (
