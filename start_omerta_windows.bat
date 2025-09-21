@@ -36,7 +36,7 @@ echo.
 
 echo [4/5] Starting Scraping Service (Windows - Visible Browser)...
 timeout 3 >nul
-start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && set "MONGO_URL=mongodb://localhost:27017" && set "DB_NAME=omerta_intelligence" && set "BACKEND_URL=http://127.0.0.1:8001" && python mongodb_scraping_service_windows.py"
+start "Omerta Scraper" cmd /k "title Omerta Scraping Service && echo IMPORTANT: This window must stay OPEN for Cloudflare bypass && echo Solve any CAPTCHAs that appear in the Chrome browser && echo. && cd /d %~dp0 && set "MONGO_URL=mongodb://localhost:27017" && set "DB_NAME=omerta_intelligence" && set "BACKEND_URL=http://127.0.0.1:8001" && python mongodb_scraping_service_windows.py"
 echo ✓ Scraping service starting on port 5001 (VISIBLE browser for Cloudflare)
 echo.
 
