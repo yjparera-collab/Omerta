@@ -1,25 +1,24 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
-color 0A
 title Omerta Intelligence Dashboard - Startup
-
-pushd %~dp0
+color 0A
 
 echo ===============================================
 echo    OMERTA INTELLIGENCE DASHBOARD
-echo    Windows CMD Startup Script v2.1 (safe env)
+echo    Windows CMD Startup Script v2.1
 echo ===============================================
 echo.
 
-echo [1/5] Environment sanity...
-rem Clear in-session vars to avoid polluted values
-set MONGO_URL=
-set DB_NAME=
-set CORS_ORIGINS=
-echo ✓ Cleared session variables
+echo [1/5] Setting up environment variables...
+set "MONGO_URL=mongodb://localhost:27017"
+set "DB_NAME=omerta_intelligence"
+set "CORS_ORIGINS=http://localhost:3000"
+set "BACKEND_URL=http://127.0.0.1:8001"
+echo Using MONGO_URL=[%MONGO_URL%]
+echo Using DB_NAME=[%DB_NAME%]
+echo ✓ Environment variables set
+echo.
 
-
-echo [2/5] Checking MongoDB service (optional)...
+echo [2/5] Checking MongoDB...
 timeout 2 >nul
 net start MongoDB >nul 2>&1
 if %errorlevel% equ 0 (
@@ -31,13 +30,13 @@ echo.
 
 echo [3/5] Starting Backend API Server...
 timeout 2 >nul
-start "Omerta Backend" cmd /k "title Omerta Backend API && cd /d %~dp0backend && setlocal EnableExtensions EnableDelayedExpansion && set "MONGO_URL=mongodb://127.0.0.1:27017" && set "DB_NAME=omerta_intelligence" && set "CORS_ORIGINS=http://localhost:3000" && echo Using MONGO_URL=[!MONGO_URL!] && python intelligence_server.py"
+start "Omerta Backend" cmd /k "title Omerta Backend API && cd /d %~dp0backend && set "MONGO_URL=mongodb://localhost:27017" && set "DB_NAME=omerta_intelligence" && set "CORS_ORIGINS=http://localhost:3000" && python intelligence_server.py"
 echo ✓ Backend starting on port 8001
 echo.
 
 echo [4/5] Starting Scraping Service (Windows - Visible Browser)...
 timeout 3 >nul
-start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && setlocal EnableExtensions EnableDelayedExpansion && set "MONGO_URL=mongodb://127.0.0.1:27017" && set "DB_NAME=omerta_intelligence" && echo Using MONGO_URL=[!MONGO_URL!] && python mongodb_scraping_service_windows.py"
+start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && set "MONGO_URL=mongodb://localhost:27017" && set "DB_NAME=omerta_intelligence" && set "BACKEND_URL=http://127.0.0.1:8001" && python mongodb_scraping_service_windows.py"
 echo ✓ Scraping service starting on port 5001 (VISIBLE browser for Cloudflare)
 echo.
 
@@ -55,20 +54,19 @@ echo    🎯 OMERTA INTELLIGENCE DASHBOARD
 echo ===============================================
 echo.
 echo 📊 Dashboard URL: http://localhost:3000
-echo 🔗 Backend API:   http://localhost:8001/docs
-set "_MONGO_PRINT=mongodb://127.0.0.1:27017"
-echo 🕷️  Scraper API:   http://127.0.0.1:5001/api/scraping/status
-echo 💾 MongoDB:       %_MONGO_PRINT%
-set _MONGO_PRINT=
+echo 🔗 Backend API:   http://localhost:8001/docs  
+echo 🕷️  Scraper API:   http://localhost:5001/api/scraping/status
+echo 💾 MongoDB:       mongodb://localhost:27017
 echo.
 echo ℹ️  All services are starting in separate windows
 echo ⚠️  Wait 30-60 seconds for full initialization
 echo 🛑 Close this window to stop monitoring
+echo.
+echo 🔧 USERNAME-FIRST MODE: All data keyed by username
+echo ✅ Fixed environment variables (no trailing spaces)
 echo.
 
 :monitor
 timeout 10 >nul
 echo [%time%] Services running... (Press Ctrl+C to exit)
 goto monitor
-
-popd
