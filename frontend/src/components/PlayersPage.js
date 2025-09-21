@@ -90,10 +90,16 @@ const PlayersPage = () => {
       
       switch (sortField) {
         case 'position':
-          // #1 is highest rank (should be at top), #2, #3, etc.
-          // Position 0 (unranked) goes at bottom
-          aVal = a.position === 0 ? 999999 : a.position;
-          bVal = b.position === 0 ? 999999 : b.position;
+          // Handle position sorting correctly for both directions
+          if (sortDirection === 'asc') {
+            // ASC: #1, #2, #3, #4, ... UNRANKED (best ranks first)
+            aVal = a.position === 0 ? 999999 : a.position;
+            bVal = b.position === 0 ? 999999 : b.position;
+          } else {
+            // DESC: UNRANKED, ..., #4, #3, #2, #1 (worst ranks first)
+            aVal = a.position === 0 ? -1 : a.position;
+            bVal = b.position === 0 ? -1 : b.position;
+          }
           break;
         case 'rank':
           const rankOrder = [
