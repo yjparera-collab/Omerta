@@ -13,7 +13,7 @@ from datetime import datetime
 import time
 
 class OmertaIntelligenceAPITester:
-    def __init__(self, base_url="https://text-analyzer-15.preview.emergentagent.com"):
+    def __init__(self, base_url="https://baratracker.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_base = f"{base_url}/api"
         self.ws_url = base_url.replace('https', 'wss') + '/ws'
