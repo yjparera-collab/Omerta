@@ -423,31 +423,11 @@ if __name__ == '__main__':
         flask_thread.start()
         print("[WEB] Flask scraping API started on http://127.0.0.1:5001")
 
-        # Setup VISIBLE browser for Windows
-        print("\n--- SETTING UP VISIBLE CHROME BROWSER FOR CLOUDFLARE ---")
-        options = uc.ChromeOptions()
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('--disable-extensions')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        # REMOVED: --headless (browser will be visible)
-        options.add_argument('--window-size=1280,720')
-        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        # Setup VISIBLE anti-detection browser for Windows
+        print("\n--- SETTING UP ANTI-DETECTION BROWSER FOR CLOUDFLARE ---")
+        driver = create_anti_detection_browser()
         
-        print("[BROWSER] Starting Chrome browser (visible window)...")
-        driver = uc.Chrome(options=options)
-        
-        # Test basic functionality
-        print("[BROWSER] Testing basic functionality...")
-        driver.get("https://httpbin.org/json")  # Test with a simple JSON endpoint first
-        time.sleep(2)
-        
-        test_source = driver.page_source
-        if "slideshow" in test_source:  # httpbin.org/json returns JSON with "slideshow"
-            print("[BROWSER] ✅ Browser working correctly")
-        else:
-            print("[BROWSER] ⚠️ Browser test inconclusive")
+        print("[BROWSER] ✅ Ready to bypass Cloudflare - browser is VISIBLE")
 
         # Signal setup complete
         setup_complete.set()
