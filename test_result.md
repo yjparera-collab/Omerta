@@ -168,15 +168,18 @@ frontend:
 
   - task: "Plating & details normalization (kills/shots/wealth zeros)"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/src/components/PlayersPage.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Adjusted semantics: For non-tracked players without detail, show N/A (not 0). For tracked players or when details exist, show numeric values including 0. Plating still falls back to general list; Very High precedence preserved. Ready for validation."
+        - working: false
+          agent: "testing"
+          comment: "❌ CRITICAL ISSUE: N/A logic not working. All 10 players show numeric values (kills/shots/wealth) instead of N/A for non-tracked players. Only 2 players (AlphaPlayer, DeltaPlayer) are tracked, but all 8 non-tracked players show numeric data like 'Kills: 12Shots: 40' instead of 'Kills: N/A Shots: N/A'. API calls to /api/players/{id} are failing with 'Failed to fetch' errors, but players still get data from somewhere else (likely general players list). The computeRowStats function is not properly implementing the N/A fallback logic. ✅ Other aspects working: Tracked players show numeric values correctly, plating visible (including Very High precedence), rank sorting functional, tracked-only filter working."
 
 metadata:
   created_by: "main_agent"
