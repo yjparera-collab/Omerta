@@ -1,385 +1,292 @@
-import time
-import undetected_chromedriver as uc
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-import json
-import threading
-from flask import Flask, request, jsonify
-from queue import Queue, PriorityQueue
-from concurrent.futures import ThreadPoolExecutor
-import hashlib
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+MongoDB Scraping Service (Windows Visible Browser)
+- Robust parsing for Barafranca APIs (users + user&name=...)
+- Handles Cloudflare via visible undetected-chromedriver
+- Caches both list and detail payloads in MongoDB
+- Resolves user_id from username using the latest list/cache when missing
+- Normalizes detective target output with real values (no fake defaults)
+- Notifies FastAPI backend for realtime UI refresh after cache updates
+"""
 import os
-import requests
+import time
+import json
+import random
+import threading
+from datetime import datetime
+from queue import PriorityQueue
+
+from flask import Flask, jsonify, request
+from bs4 import BeautifulSoup
 from pymongo import MongoClient
 from dotenv import load_dotenv
-import random  # Added for random delays
+import undetected_chromedriver as uc
+import requests
 
-# Load environment variables
+# -------------------- ENV --------------------
 load_dotenv()
-
-# --- CONFIGURATIE ---
 USER_LIST_URL = "https://barafranca.com/index.php?module=API&action=users"
-USER_DETAIL_URL_TEMPLATE = "https://barafranca.com/index.php?module=API&action=user&name={}"
+USER_DETAIL_URL_TEMPLATE = "https://barafranca.com/index.php?module=API&action=user&name={}" 
 MAIN_LIST_INTERVAL = 30
-MAX_CONCURRENT_TABS = 2
-CACHE_DURATION = 30  # 30 seconden cache voor detective targets
-BATCH_SIZE = 5
 
-# --- MongoDB SETUP ---
+# -------------------- MONGO --------------------
 def init_mongodb():
-    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+    mongo_url = os.environ.get('MONGO_URL', 'mongodb://127.0.0.1:27017')
     client = MongoClient(mongo_url)
     db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
-    
     print(f"[DB] Connected to MongoDB: {mongo_url}")
     print(f"[DB] Database: {db.name}")
-    
-    # Create indexes for better performance
-    db.detective_targets.create_index("player_id", unique=True)
-    db.detective_targets.create_index("is_active")
-    db.player_cache.create_index("user_id", unique=True)
-    db.intelligence_notifications.create_index("timestamp")
-    
+    # Indexes
+    try:
+        db.detective_targets.create_index("username", unique=True)
+        db.detective_targets.create_index("is_active")
+        db.player_cache.create_index("user_id", unique=True)
+        db.intelligence_notifications.create_index("timestamp")
+    except Exception as e:
+        print(f"[DB] Index warning: {e}")
     return db
 
-# --- SMART DATA MANAGER ---
+# -------------------- DATA MANAGER --------------------
 class IntelligenceDataManager:
     def __init__(self):
         self.db = init_mongodb()
-        self.full_user_list = []
-        self.target_families = []
+        self.full_user_list = []   # list of normalized player dicts from users API
         self.detective_targets = set()
-        self.detailed_user_info = {}
-        self.last_list_update = None
-        self.lock = threading.Lock()
-        self.previous_player_data = {}
         self.notification_callbacks = []
-
+        self.lock = threading.Lock()
         self.load_detective_targets()
 
+    def load_detective_targets(self):
+        try:
+            targets = list(self.db.detective_targets.find({"is_active": True}))
+            self.detective_targets = {t['username'] for t in targets}
+            print(f"[TARGET] Loaded {len(self.detective_targets)} detective targets")
+        except Exception as e:
+            print(f"[TARGET] Load error: {e}")
+
+    def add_detective_targets(self, usernames):
+        added = 0
+        for username in usernames:
+            try:
+                res = self.db.detective_targets.update_one(
+                    {"username": username},
+                    {"$set": {"username": username, "is_active": True, "added_timestamp": datetime.utcnow()}},
+                    upsert=True
+                )
+                if res.upserted_id or res.modified_count > 0:
+                    self.detective_targets.add(username)
+                    added += 1
+            except Exception as e:
+                print(f"[TARGET] Add error for {username}: {e}")
+        return {"added": added, "total": len(self.detective_targets)}
+
     def get_user_id_by_username(self, username: str):
-        """Try to resolve user_id from username using latest list or cache"""
+        """Resolve user_id from latest list or cache; returns str or None"""
         if not username:
             return None
         try:
-            name_l = username.lower()
-            # Prefer the most recent full_user_list
+            name_l = str(username).lower()
+            # Prefer latest list (normalized)
             for user in self.full_user_list or []:
-                # different list formats may use different keys
-                u_name = user.get('username') or user.get('uname') or user.get('name')
-                if u_name and str(u_name).lower() == name_l:
+                u = user.get('uname') or user.get('username') or user.get('name')
+                if u and str(u).lower() == name_l:
                     uid = user.get('user_id') or user.get('id') or user.get('player_id')
                     if uid is not None:
                         return str(uid)
-            # Fallback to player_cache document
+            # Fallback to cache
             doc = self.db.player_cache.find_one({"username": username})
             if doc and doc.get('user_id'):
                 return str(doc['user_id'])
         except Exception as e:
-            print(f"[MAP] Failed to map username to user_id for {username}: {e}")
+            print(f"[MAP] Failed mapping for {username}: {e}")
         return None
 
+    def cache_player_data(self, user_id: str, username: str, data: dict):
+        try:
+            doc = {
+                "user_id": str(user_id),
+                "username": username or f"Player_{user_id}",
+                "data": json.dumps(data, default=str),
+                "last_updated": datetime.utcnow(),
+                "priority": 1,
+            }
+            self.db.player_cache.update_one({"user_id": str(user_id)}, {"$set": doc}, upsert=True)
+            return True
+        except Exception as e:
+            print(f"[CACHE] Error for {username} ({user_id}): {e}")
+            return False
+
     def notify_backend_list_updated(self, payload=None):
-        """Non-blocking notify to FastAPI to broadcast updates"""
         try:
             backend_url = os.environ.get('BACKEND_URL', 'http://127.0.0.1:8001')
             data = payload or {"source": "scraper", "timestamp": datetime.utcnow().isoformat()}
-            # fire-and-forget with short timeout
             requests.post(f"{backend_url}/api/internal/list-updated", json=data, timeout=2)
         except Exception as e:
-            # don't crash scraper because backend might not be local
+            # Backend mogelijk elders; dit mag scraper niet blokkeren
             if 'ConnectionRefusedError' not in str(e):
                 print(f"[NOTIFY] Backend notify failed: {e}")
 
-    def add_notification_callback(self, callback):
-        """Register callback voor real-time notifications"""
-        self.notification_callbacks.append(callback)
-
-    def notify_intelligence_update(self, notification_data):
-        """Verstuur notification naar alle registered callbacks"""
-        for callback in self.notification_callbacks:
-            try:
-                callback(notification_data)
-            except Exception as e:
-                print(f"Error in notification callback: {e}")
-
-    def load_detective_targets(self):
-        """Load active detective targets from MongoDB"""
-        try:
-            targets = list(self.db.detective_targets.find({"is_active": True}))
-            self.detective_targets = {target['username'] for target in targets}
-            print(f"[DB] Loaded {len(self.detective_targets)} detective targets")
-        except Exception as e:
-            print(f"[ERROR] Loading detective targets: {e}")
-
-    def add_detective_targets(self, usernames):
-        """Add new detective targets to MongoDB"""
-        added_count = 0
-        for username in usernames:
-            try:
-                result = self.db.detective_targets.update_one(
-                    {"username": username},
-                    {
-                        "$set": {
-                            "username": username,
-                            "player_id": f"player_{username.lower()}",
-                            "added_timestamp": datetime.utcnow(),
-                            "is_active": True
-                        }
-                    },
-                    upsert=True
-                )
-                if result.upserted_id or result.modified_count > 0:
-                    self.detective_targets.add(username)
-                    added_count += 1
-                    print(f"[TARGET] Added detective target: {username}")
-            except Exception as e:
-                print(f"[ERROR] Adding detective target {username}: {e}")
-        
-        return {"added": added_count, "total": len(self.detective_targets)}
-
     def get_detective_targets(self):
-        """Get all active detective targets with their latest data"""
+        """Return detective targets with real values if cached; no fake defaults"""
         try:
             targets = list(self.db.detective_targets.find({"is_active": True}))
             result = []
-            
-            for target in targets:
-                # Get latest cached data for this target
-                cached_data = self.db.player_cache.find_one({"username": target['username']})
-                
-                player_info = {
-                    "username": target['username'],
-                    "player_id": target.get('player_id', ''),
-                    "added_timestamp": target.get('added_timestamp', ''),
-                    # Leave fields undefined unless we have real data
-                    "last_updated": None
+            for t in targets:
+                rec = {
+                    "username": t['username'],
+                    "player_id": t.get('player_id', ''),
+                    "added_timestamp": t.get('added_timestamp')
                 }
-                
-                if cached_data:
+                cached = self.db.player_cache.find_one({"username": t['username']})
+                if cached:
                     try:
-                        raw = json.loads(cached_data.get('data', '{}'))
+                        raw = cached.get('data')
+                        raw = json.loads(raw) if isinstance(raw, str) else raw
                         inner = raw.get('data', raw) if isinstance(raw, dict) else raw
-                        # Normalize bullets_shot total
-                        bs = inner.get('bullets_shot') if isinstance(inner, dict) else None
-                        shots_total = None
-                        if isinstance(bs, dict):
-                            shots_total = bs.get('total')
-                        else:
-                            shots_total = bs
-                        player_info.update({
-                            "kills": inner.get('kills'),
-                            "shots": shots_total,
-                            "wealth": inner.get('wealth'),
-                            "plating": inner.get('plating'),
-                            "last_updated": cached_data.get('last_updated')
-                        })
+                        if isinstance(inner, dict):
+                            bs = inner.get('bullets_shot')
+                            shots_total = bs.get('total') if isinstance(bs, dict) else bs
+                            if inner.get('kills') is not None:
+                                rec['kills'] = _to_int(inner.get('kills'))
+                            if shots_total is not None:
+                                rec['shots'] = _to_int(shots_total)
+                            if inner.get('wealth') is not None:
+                                rec['wealth'] = _to_int(inner.get('wealth'))
+                            if inner.get('plating') is not None:
+                                rec['plating'] = inner.get('plating')
+                            rec['last_updated'] = cached.get('last_updated')
                     except Exception as e:
-                        print(f"[TARGETS] Parse error for {target['username']}: {e}")
-                
-                result.append(player_info)
-            
+                        print(f"[TARGETS] Parse error for {t['username']}: {e}")
+                result.append(rec)
             return result
         except Exception as e:
-            print(f"[ERROR] Getting detective targets: {e}")
+            print(f"[TARGETS] Error: {e}")
             return []
 
-    def cache_player_data(self, user_id, username, data):
-        """Cache player data in MongoDB"""
-        try:
-            # Ensure user_id and username are strings
-            user_id_str = str(user_id) if user_id else None
-            username_str = str(username) if username else f"Player_{user_id_str}"
-            
-            if not user_id_str:
-                raise ValueError("No valid user_id provided")
-            
-            # Create document
-            doc = {
-                "user_id": user_id_str,
-                "username": username_str,
-                "data": json.dumps(data, default=str),  # Handle datetime objects
-                "last_updated": datetime.utcnow(),
-                "priority": 1
-            }
-            
-            result = self.db.player_cache.update_one(
-                {"user_id": user_id_str},
-                {"$set": doc},
-                upsert=True
-            )
-            
-            # Verify the operation
-            if result.upserted_id or result.modified_count > 0:
-                return True
-            else:
-                print(f"[CACHE] ⚠️ No changes made for {username_str}")
-                return False
-                
-        except Exception as e:
-            print(f"[ERROR] Caching player data for {username} (ID: {user_id}): {e}")
-            return False
-
-    def get_cached_players_count(self):
-        """Get count of cached players"""
-        try:
-            return self.db.player_cache.count_documents({})
-        except:
-            return 0
-
-    def add_intelligence_notification(self, player_id, username, notification_type, message, data=None):
-        """Add intelligence notification to MongoDB"""
-        try:
-            self.db.intelligence_notifications.insert_one({
-                "player_id": player_id,
-                "username": username,
-                "notification_type": notification_type,
-                "message": message,
-                "data": json.dumps(data) if data else None,
-                "timestamp": datetime.utcnow(),
-                "is_read": False
-            })
-            
-            # Also notify via callbacks for real-time updates
-            notification_data = {
-                "type": notification_type,
-                "username": username,
-                "message": message,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            self.notify_intelligence_update(notification_data)
-            
-        except Exception as e:
-            print(f"[ERROR] Adding notification: {e}")
-
-# --- IMPROVED BROWSER SETUP (Windows - VISIBLE with ANTI-DETECTION) ---
-def create_compatible_browser():
-    """Create compatible browser for Windows with fallback options"""
-    print("[BROWSER] Setting up compatible browser voor Windows...")
-    
+# -------------------- BROWSER --------------------
+def create_browser():
+    print("[BROWSER] Setting up visible Chrome (undetected)")
     options = uc.ChromeOptions()
-    
-    # Basic required options (compatible with all Chrome versions)
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--disable-extensions')
-    options.add_argument('--no-first-run')
-    options.add_argument('--disable-default-apps')
-    
-    # User agent
-    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-    
-    # Window size
-    options.add_argument('--window-size=1280,720')
-    
-    # Try experimental options with fallback
+    options.add_argument('--window-size=1366,768')
+    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36')
     try:
-        # Advanced anti-detection (may not work on all Chrome versions)
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
-        print("[BROWSER] ✅ Advanced anti-detection options applied")
-    except Exception as e:
-        print(f"[BROWSER] ⚠️ Advanced options not supported: {e}")
-        print("[BROWSER] ℹ️ Using basic compatibility mode")
-    
+    except Exception:
+        pass
+    driver = uc.Chrome(options=options)
     try:
-        # Create driver with automatic version detection
-        driver = uc.Chrome(options=options)
-        print("[BROWSER] ✅ Chrome driver created successfully")
-        
-        # Try to hide automation indicators
-        try:
-            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            print("[BROWSER] ✅ Webdriver masking applied")
-        except Exception as e:
-            print(f"[BROWSER] ⚠️ Webdriver masking failed: {e}")
-        
-        return driver
-        
-    except Exception as e:
-        print(f"[BROWSER] ❌ Chrome driver creation failed: {e}")
-        print("[BROWSER] 🔧 Trying fallback options...")
-        
-        # Fallback: Ultra-simple options
-        simple_options = uc.ChromeOptions()
-        simple_options.add_argument('--no-sandbox')
-        simple_options.add_argument('--disable-dev-shm-usage')
-        simple_options.add_argument('--window-size=1280,720')
-        
-        driver = uc.Chrome(options=simple_options)
-        print("[BROWSER] ✅ Fallback browser created")
-        return driver
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    except Exception:
+        pass
+    return driver
 
+# -------------------- CLOUDFLARE HELPER --------------------
 def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
-    """Smart Cloudflare handler with improved detection (from working version)"""
-    print(f"\n[{worker_name}] Navigating to: {url}")
-    
+    print(f"[{worker_name}] Navigating to: {url}")
     try:
         driver.get(url)
-        time.sleep(3)  # Initial wait
-        
-        page_source = driver.page_source.lower()
-        
-        # IMPROVED: Better Cloudflare detection (from working version)
-        if "cloudflare" in page_source or "just a moment" in page_source or "checking your browser" in page_source:
-            print(f"\n🔒 CLOUDFLARE GEDETECTEERD!")
-            print(f"📋 ACTIES NODIG:")
-            print(f"   1. ✅ Chrome venster is zichtbaar")
-            print(f"   2. ⏳ Wacht 5-10 seconden voor automatische bypass")
-            print(f"   3. 🧩 Los CAPTCHA op als die verschijnt")
-            print(f"   4. 🚪 Laat het venster OPEN")
-            print(f"\n⏰ Maximaal {timeout} seconden wachttijd...")
-            
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                try:
-                    current_source = driver.page_source.lower()
-                    # IMPROVED: Better detection logic (from working version)
-                    if "cloudflare" not in current_source and "just a moment" not in current_source and "checking your browser" not in current_source:
-                        print(f"\n✅ CLOUDFLARE GEPASSEERD! Scraper gaat verder...")
-                        return True
-                except:
-                    pass
-                
+        time.sleep(3)
+        src = driver.page_source.lower()
+        if any(k in src for k in ["cloudflare", "just a moment", "checking your browser"]):
+            print("🔒 Cloudflare gedetecteerd, wachten en evt. handmatig helpen…")
+            start = time.time()
+            while time.time() - start < timeout:
                 time.sleep(2)
-                elapsed = int(time.time() - start_time)
-                if elapsed % 10 == 0 and elapsed > 0:
-                    print(f"⏳ {timeout - elapsed} seconden over...")
-            
-            print(f"⏰ Time-out bereikt. Proberen verder te gaan...")
+                try:
+                    cur = driver.page_source.lower()
+                    if not any(k in cur for k in ["cloudflare", "just a moment", "checking your browser"]):
+                        print("✅ Cloudflare gepasseerd")
+                        return True
+                except Exception:
+                    pass
+            print("⏰ Time-out bereikt; ga door")
             return False
         else:
-            print(f"✅ Geen Cloudflare - direct toegang!")
+            print("✅ Geen Cloudflare - direct toegang!")
             return True
-            
     except Exception as e:
-        print(f"[{worker_name}] Cloudflare handler error: {e}")
+        print(f"[{worker_name}] Error: {e}")
         return False
 
-# --- Flask App Setup ---
+# -------------------- FLASK --------------------
 app = Flask(__name__)
-data_manager = IntelligenceDataManager()
-priority_queue = PriorityQueue()
+DM = IntelligenceDataManager()
+PQ = PriorityQueue()
 
 @app.route('/api/scraping/status')
-def get_status():
-    """Get scraping service status"""
+def status():
     try:
         return jsonify({
             "status": "online",
-            "cached_players": data_manager.get_cached_players_count(),
-            "detective_targets": len(data_manager.detective_targets),
+            "cached_players": DM.db.player_cache.count_documents({}),
+            "detective_targets": len(DM.detective_targets),
             "timestamp": datetime.utcnow().isoformat()
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/scraping/detective/targets')
-def get_detective_targets():
-    """Get all detective targets with their data"""
+@app.route('/api/scraping/players')
+def get_players():
+    """Return normalized players list for UI (id/uname/rank_name/f_name/status/position/plating)."""
     try:
-        targets = data_manager.get_detective_targets()
+        docs = list(DM.db.player_cache.find({}, {"_id": 0}).sort("last_updated", -1).limit(2000))
+        out = []
+        for d in docs:
+            try:
+                raw = d.get('data')
+                raw = json.loads(raw) if isinstance(raw, str) else raw
+                inner = raw.get('data', raw) if isinstance(raw, dict) else raw
+                if not isinstance(inner, dict):
+                    continue
+                # Prefer normalized fields, fall back from detail
+                uid = inner.get('id') or inner.get('user_id') or d.get('user_id')
+                uname = inner.get('uname') or inner.get('username') or inner.get('name') or d.get('username')
+                rank_name = inner.get('rank_name') or inner.get('rank')
+                f_name = inner.get('f_name') or ((inner.get('family') or {}).get('name') if isinstance(inner.get('family'), dict) else None)
+                status_v = inner.get('status')
+                position = inner.get('position')
+                plating = inner.get('plating')
+                if uid and uname:
+                    out.append({
+                        "id": str(uid),
+                        "uname": uname,
+                        "rank_name": rank_name,
+                        "f_name": f_name,
+                        "status": status_v,
+                        "position": position,
+                        "plating": plating,
+                    })
+            except Exception:
+                continue
+        return jsonify({"players": out, "count": len(out), "timestamp": datetime.utcnow().isoformat()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scraping/player/<player_id>')
+def get_player(player_id):
+    try:
+        d = DM.db.player_cache.find_one({"user_id": str(player_id)}, {"_id": 0})
+        if not d:
+            return jsonify({"error": "Player not found"}), 404
+        raw = d.get('data')
+        raw = json.loads(raw) if isinstance(raw, str) else raw
+        inner = raw.get('data', raw) if isinstance(raw, dict) else raw
+        if not isinstance(inner, dict):
+            return jsonify({"error": "Invalid player data"}), 500
+        return jsonify(inner)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scraping/detective/targets')
+def get_targets():
+    try:
+        targets = DM.get_detective_targets()
         return jsonify({
             "tracked_players": targets,
             "count": len(targets),
@@ -389,347 +296,178 @@ def get_detective_targets():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/scraping/detective/add', methods=['POST'])
-def add_detective_targets():
-    """Add new detective targets"""
+def add_targets():
     try:
-        data = request.get_json()
+        data = request.get_json(force=True) or {}
         usernames = data.get('usernames', [])
-        
         if not usernames:
             return jsonify({"error": "No usernames provided"}), 400
-            
-        result = data_manager.add_detective_targets(usernames)
-        return jsonify({
-            "message": f"Added {result['added']} detective targets",
-            "added": result['added'],
-            "total_targets": result['total'],
-            "timestamp": datetime.utcnow().isoformat()
-        })
+        result = DM.add_detective_targets(usernames)
+        return jsonify({"message": f"Added {result['added']} detective targets", "added": result['added'], "total_targets": result['total'], "timestamp": datetime.utcnow().isoformat()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/scraping/notifications')
-def get_notifications():
-    """Get intelligence notifications"""
-    try:
-        # Get recent notifications from MongoDB
-        notifications = list(
-            data_manager.db.intelligence_notifications
-            .find({}, {"_id": 0})
-            .sort("timestamp", -1)
-            .limit(50)
-        )
-        
-        return jsonify({
-            "notifications": notifications,
-            "count": len(notifications),
-            "timestamp": datetime.utcnow().isoformat()
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/scraping/players')
-def get_players():
-    """Get all cached players"""
-    try:
-        # Get all cached players from MongoDB
-        players = list(
-            data_manager.db.player_cache
-            .find({}, {"_id": 0})
-            .sort("last_updated", -1)
-            .limit(2000)  # Increased limit to show more players
-        )
-        
-        # Parse player data
-        parsed_players = []
-        for player in players:
-            try:
-                player_data = json.loads(player.get('data', '{}'))
-                parsed_players.append(player_data)
-            except:
-                pass
-        
-        return jsonify({
-            "players": parsed_players,
-            "count": len(parsed_players),
-            "timestamp": datetime.utcnow().isoformat()
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/scraping/player/<player_id>')
-def get_player_detail(player_id):
-    """Get specific player details"""
-    try:
-        # Find player in cache
-        player = data_manager.db.player_cache.find_one(
-            {"user_id": player_id}, 
-            {"_id": 0}
-        )
-        
-        if not player:
-            return jsonify({"error": "Player not found"}), 404
-        
-        # Parse player data
-        try:
-            player_data = json.loads(player.get('data', '{}'))
-            return jsonify(player_data)
-        except:
-            return jsonify({"error": "Invalid player data"}), 500
-            
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# --- Background Workers ---
-def smart_list_worker(driver, data_manager, priority_queue):
-    """Worker that fetches the main user list with improved Cloudflare handling"""
+# -------------------- WORKERS --------------------
+def list_worker(driver: uc.Chrome):
     while True:
         try:
-            print(f"\n[LIST_WORKER] Fetching user list...")
-            
-            # Use improved Cloudflare handler
-            if smart_cloudflare_handler(driver, USER_LIST_URL, worker_name="LIST_WORKER"):
-                time.sleep(2)  # Extra wait after Cloudflare
-                page_source = driver.page_source
-                soup = BeautifulSoup(page_source, 'html.parser')
-                
-                # Try to parse JSON from the page
+            print("\n[LIST_WORKER] Fetching user list...")
+            if smart_cloudflare_handler(driver, USER_LIST_URL, "LIST_WORKER", timeout=45):
+                time.sleep(1)
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                text = soup.text.strip()
                 try:
-                    # Look for JSON data in the page
-                    if soup.text.strip().startswith('[') or soup.text.strip().startswith('{'):
-                        users_data = json.loads(soup.text.strip())
-                        
-                        # Handle both list and dict formats
-                        if isinstance(users_data, list):
-                            # Direct list of players
-                            player_list = users_data
-                            print(f"[LIST_WORKER] ✅ Got list format: {len(player_list)} players")
-                        elif isinstance(users_data, dict):
-                            # Dictionary wrapper or container
-                            print(f"[LIST_WORKER] 📊 Got dict format, keys: {list(users_data.keys())}")
-
-                            # Unwrap common wrapper {cached, time, expires, data}
-                            container = users_data.get('data', users_data)
-
-                            # If the unwrapped container is a list, it's the player list
-                            if isinstance(container, list):
-                                player_list = container
-                            elif isinstance(container, dict):
-                                # Try common keys inside container
-                                if 'users' in container:
-                                    player_list = container['users']
-                                elif 'players' in container:
-                                    player_list = container['players']
-                                else:
-                                    # Extract dict values that look like player dicts
-                                    player_list = []
-                                    for key, value in container.items():
-                                        if isinstance(value, dict) and ('user_id' in value or 'id' in value):
-                                            player_list.append(value)
-                                        elif isinstance(value, list):
-                                            player_list.extend(value)
-                            else:
-                                player_list = []
-
-                            print(f"[LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 0} players from wrapper")
-                        else:
-                            print(f"[LIST_WORKER] ⚠️ Unexpected data format: {type(users_data)}")
-                            player_list = []
-                        
-                        # Process the player list
-                        if isinstance(player_list, list) and len(player_list) > 0:
-                            data_manager.full_user_list = player_list
-                            print(f"[LIST_WORKER] ✅ Updated user list: {len(player_list)} players")
-                            
-                            # Cache basic user data
-                            cached_count = 0
-                            failed_count = 0
-                            
-                            # Debug: Check first player structure
-                            if len(player_list) > 0:
-                                first_player = player_list[0]
-                                print(f"[LIST_WORKER] 🔍 First player keys: {list(first_player.keys()) if isinstance(first_player, dict) else 'Not a dict'}")
-                                print(f"[LIST_WORKER] 🔍 First player sample: {str(first_player)[:200]}...")
-                            
-                            for user in player_list:
-                                if isinstance(user, dict):
-                                    # Try different ID field names
-                                    user_id = None
-                                    username = None
-                                    
-                                    # Common ID field names
-                                    for id_field in ['user_id', 'id', 'player_id', 'userId', 'playerId']:
-                                        if id_field in user:
-                                            user_id = user[id_field]
-                                            break
-                                    
-                                    # Common username field names
-                                    for name_field in ['username', 'name', 'player_name', 'userName', 'playerName']:
-                                        if name_field in user:
-                                            username = user[name_field]
-                                            break
-                                    
-                                    if user_id is None:
-                                        # Try to backfill from common fields
-                                        user_id = user.get('id') or user.get('player_id')
-
-                                    if user_id:
-                                        try:
-                                            # Normalize to unified structure used by UI: id/uname/rank/plating/position
-                                            normalized = {
-                                                "id": str(user_id),
-                                                "user_id": str(user_id),
-                                                "uname": user.get('uname') or user.get('username') or user.get('name'),
-                                                "rank_name": user.get('rank_name') or user.get('rank'),
-                                                "plating": user.get('plating'),
-                                                "position": user.get('position'),
-                                                "status": user.get('status'),
-                                                "f_name": user.get('f_name') or (user.get('family', {}) or {}).get('name'),
-                                            }
-                                            data_manager.cache_player_data(
-                                                str(user_id),
-                                                normalized.get('uname') or f"Player_{user_id}",
-                                                normalized
-                                            )
-                                            cached_count += 1
-                                        except Exception as e:
-                                            print(f"[LIST_WORKER] ❌ Cache error for {user_id}: {e}")
-                                            failed_count += 1
-                                    else:
-                                        failed_count += 1
-                                        if failed_count <= 3:  # Only show first few failures
-                                            print(f"[LIST_WORKER] ⚠️ No ID found in player keys: {list(user.keys())}")
-                            
-                            print(f"[LIST_WORKER] 💾 Cached {cached_count} players, {failed_count} failed")
-                        else:
-                            print(f"[LIST_WORKER] ❌ No valid player data found")
-                            
+                    users_data = json.loads(text)
                 except json.JSONDecodeError as e:
-                    print(f"[LIST_WORKER] ❌ Failed to parse JSON: {e}")
-                    print(f"[LIST_WORKER] Page content preview: {soup.text[:200]}")
+                    print(f"[LIST_WORKER] JSON parse error: {e}")
+                    users_data = []
+
+                player_list = []
+                if isinstance(users_data, list):
+                    player_list = users_data
+                    print(f"[LIST_WORKER] ✅ Got list: {len(player_list)} players")
+                elif isinstance(users_data, dict):
+                    print(f"[LIST_WORKER] 📊 Got dict format, keys: {list(users_data.keys())}")
+                    container = users_data.get('data', users_data)
+                    if isinstance(container, list):
+                        player_list = container
+                    elif isinstance(container, dict):
+                        if 'users' in container:
+                            player_list = container['users']
+                        elif 'players' in container:
+                            player_list = container['players']
+                        else:
+                            # collect any dicts that look like players
+                            for _, value in container.items():
+                                if isinstance(value, dict) and ('user_id' in value or 'id' in value or 'uname' in value or 'username' in value):
+                                    player_list.append(value)
+                                elif isinstance(value, list):
+                                    player_list.extend(value)
+                    print(f"[LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 0} players from wrapper")
+                else:
+                    print("[LIST_WORKER] ⚠️ Unexpected data format")
+
+                # Normalize + cache
+                cached, failed = 0, 0
+                normalized_list = []
+                for user in player_list or []:
+                    if not isinstance(user, dict):
+                        continue
+                    uid = user.get('user_id') or user.get('id') or user.get('player_id')
+                    if uid is None:
+                        # some list entries use different keys; try best-effort
+                        uid = user.get('Id') or user.get('UserId')
+                    uname = user.get('uname') or user.get('username') or user.get('name')
+                    rank_name = user.get('rank_name') or user.get('rank')
+                    f_name = user.get('f_name') or ((user.get('family') or {}).get('name') if isinstance(user.get('family'), dict) else None)
+                    status_v = user.get('status')
+                    position = user.get('position')
+                    plating = user.get('plating')
+                    if uid and uname:
+                        normalized = {
+                            "id": str(uid),
+                            "user_id": str(uid),
+                            "uname": uname,
+                            "rank_name": rank_name,
+                            "f_name": f_name,
+                            "status": status_v,
+                            "position": position,
+                            "plating": plating,
+                        }
+                        if DM.cache_player_data(str(uid), uname, normalized):
+                            cached += 1
+                            normalized_list.append(normalized)
+                    else:
+                        failed += 1
+                DM.full_user_list = normalized_list
+                print(f"[LIST_WORKER] 💾 Cached {cached} players, {failed} failed")
             else:
-                print(f"[LIST_WORKER] ❌ Failed to bypass Cloudflare")
-                
+                print("[LIST_WORKER] ❌ Failed to bypass Cloudflare")
         except Exception as e:
             print(f"[LIST_WORKER] ❌ Error: {e}")
-        
         print(f"[LIST_WORKER] ⏳ Next update in {MAIN_LIST_INTERVAL} seconds")
         time.sleep(MAIN_LIST_INTERVAL)
 
-def batch_detail_worker(driver, data_manager, priority_queue):
-    """Worker that processes detective targets with improved Cloudflare handling"""
+
+def detail_worker(driver: uc.Chrome):
     while True:
         try:
-            if data_manager.detective_targets:
-                print(f"\n[DETAIL_WORKER] Processing {len(data_manager.detective_targets)} detective targets...")
-                
-                for username in list(data_manager.detective_targets):
-                    try:
-                        url = USER_DETAIL_URL_TEMPLATE.format(username)
-                        print(f"[DETAIL_WORKER] Getting {username}...")
-                        
-                        # Use improved Cloudflare handler
-                        if smart_cloudflare_handler(driver, url, worker_name="DETAIL_WORKER", timeout=30):
-                            time.sleep(1)  # Brief wait after Cloudflare
-                            page_source = driver.page_source
-                            soup = BeautifulSoup(page_source, 'html.parser')
-                            
-                            # Try to parse user detail JSON
-                            if soup.text.strip().startswith('{'):
-                                user_data = json.loads(soup.text.strip())
-
-                                if isinstance(user_data, dict):
-                                    # Unwrap wrapper if present
-                                    inner = user_data.get('data', user_data)
-                                    # Ensure user_id by mapping if missing
-                                    uid = user_data.get('user_id') or inner.get('user_id')
-                                    if not uid:
-                                        uid = data_manager.get_user_id_by_username(username)
-                                        if uid:
-                                            inner['user_id'] = uid
+            if not DM.detective_targets:
+                print("[DETAIL_WORKER] ℹ️ No detective targets configured")
+            for username in list(DM.detective_targets):
+                try:
+                    print(f"\n[DETAIL_WORKER] Getting {username}...")
+                    url = USER_DETAIL_URL_TEMPLATE.format(username)
+                    if smart_cloudflare_handler(driver, url, "DETAIL_WORKER", timeout=45):
+                        time.sleep(1)
+                        soup = BeautifulSoup(driver.page_source, 'html.parser')
+                        text = soup.text.strip()
+                        if text.startswith('{'):
+                            user_data = json.loads(text)
+                            if isinstance(user_data, dict):
+                                inner = user_data.get('data', user_data)
+                                uid = user_data.get('user_id') or inner.get('user_id')
+                                if not uid:
+                                    uid = DM.get_user_id_by_username(username)
                                     if uid:
-                                        data_manager.cache_player_data(
-                                            str(uid),
-                                            username,
-                                            inner
-                                        )
+                                        inner['user_id'] = uid
+                                if uid:
+                                    if DM.cache_player_data(str(uid), username, inner):
                                         print(f"[DETAIL_WORKER] ✅ Updated data for {username} (id={uid})")
-                                        data_manager.notify_backend_list_updated({"username": username, "user_id": str(uid)})
-                                    else:
-                                        print(f"[DETAIL_WORKER] ⚠️ No user_id for {username} - cached detail skipped")
-                        else:
-                            print(f"[DETAIL_WORKER] ❌ Failed to access {username}")
-                        
-                        # Random delay between requests to avoid detection
-                        delay = random.uniform(3, 6)
-                        time.sleep(delay)
-                            
-                    except Exception as e:
-                        print(f"[DETAIL_WORKER] ❌ Error processing {username}: {e}")
-                        
-            else:
-                print(f"[DETAIL_WORKER] ℹ️ No detective targets configured")
-                
+                                        DM.notify_backend_list_updated({"username": username, "user_id": str(uid)})
+                                else:
+                                    print(f"[DETAIL_WORKER] ⚠️ No user_id for {username} - cached detail skipped")
+                    # be polite
+                    time.sleep(random.uniform(3, 6))
+                except Exception as e:
+                    print(f"[DETAIL_WORKER] ❌ Error processing {username}: {e}")
         except Exception as e:
             print(f"[DETAIL_WORKER] ❌ Worker error: {e}")
-            
-        print(f"[DETAIL_WORKER] ⏳ Next batch in 90 seconds")
-        time.sleep(90)  # Longer interval for stealth
+        print("[DETAIL_WORKER] ⏳ Next batch in 90 seconds")
+        time.sleep(90)
 
-# --- MAIN EXECUTION ---
+# -------------------- MAIN --------------------
 if __name__ == '__main__':
-    setup_complete = threading.Event()
     driver = None
-    
     try:
-        print("\n[SETUP] Starting MongoDB-based Omerta Intelligence Scraping Service (Windows)...")
-        print("🪟 WINDOWS MODE: Browser zal ZICHTBAAR zijn voor Cloudflare bypass")
-        
-        # Start Flask API
-        flask_thread = threading.Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5001, host='127.0.0.1'))
-        flask_thread.daemon = True
-        flask_thread.start()
-        print("[WEB] Flask scraping API started on http://127.0.0.1:5001")
+        print("\n[SETUP] Starting MongoDB Omerta Scraping Service (Windows Visible Browser)…")
+        # Start Flask in a thread
+        svr = threading.Thread(target=lambda: app.run(debug=False, use_reloader=False, port=5001, host='127.0.0.1'))
+        svr.daemon = True
+        svr.start()
+        print("[WEB] Flask scraping API on http://127.0.0.1:5001")
 
-        # Setup VISIBLE compatible browser for Windows
-        print("\n--- SETTING UP COMPATIBLE BROWSER FOR CLOUDFLARE ---")
-        driver = create_compatible_browser()
-        
-        print("[BROWSER] ✅ Ready to bypass Cloudflare - browser is VISIBLE")
+        driver = create_browser()
+        print("[BROWSER] ✅ Visible Chrome ready")
 
-        # Signal setup complete
-        setup_complete.set()
+        t1 = threading.Thread(target=list_worker, args=(driver,))
+        t1.daemon = True
+        t1.start()
 
-        # Start worker threads
-        list_thread = threading.Thread(target=smart_list_worker, args=(driver, data_manager, priority_queue))
-        list_thread.daemon = True
-        list_thread.start()
-
-        batch_thread = threading.Thread(target=batch_detail_worker, args=(driver, data_manager, priority_queue))
-        batch_thread.daemon = True
-        batch_thread.start()
-
-        print(f"\n" + "="*60)
-        print(f"🎯 MONGODB OMERTA INTELLIGENCE SCRAPING ACTIVE (WINDOWS)")
-        print(f"🛡️  ANTI-DETECTION BROWSER: Advanced Cloudflare bypass")
-        print(f"🪟 Chrome browser venster is ZICHTBAAR voor handmatige hulp")
-        print(f"[LIVE] Smart List Worker: Every {MAIN_LIST_INTERVAL} seconds")
-        print(f"[BATCH] Detail Worker: Detective targets every 90 seconds")
-        print(f"[CACHE] Using MongoDB for persistent data")
-        print(f"[TARGET] Ready for FastAPI integration on port 8001")
-        print(f"\n💡 TIP: Laat het Chrome venster open - automatische bypass actief!")
-        print(f"🔧 HELP: Los CAPTCHA's op als die verschijnen")
-        print(f"🛑 STOP: Ctrl+C om te stoppen")
-        print(f"="*60)
+        t2 = threading.Thread(target=detail_worker, args=(driver,))
+        t2.daemon = True
+        t2.start()
 
         while True:
-            time.sleep(100)
-
+            time.sleep(60)
     except KeyboardInterrupt:
-        print("\n\n👋 Scraping service stopped by user.")
+        print("\n👋 Stopped by user")
     except Exception as e:
-        print(f"\n[ERROR] Error: {e}")
+        print(f"\n[ERROR] {e}")
     finally:
-        if driver:
-            driver.quit()
-        print("[SECURE] Browser connections closed.")
+        try:
+            if driver:
+                driver.quit()
+        except Exception:
+            pass
+        print("[SECURE] Browser closed")
+
+# -------------------- HELPERS --------------------
+def _to_int(v):
+    try:
+        return int(v)
+    except Exception:
+        try:
+            return int(float(v))
+        except Exception:
+            return None
