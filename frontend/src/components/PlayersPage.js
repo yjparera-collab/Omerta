@@ -285,10 +285,10 @@ const PlayersPage = () => {
     return { text: plating, class: 'text-gray-300', level: 1 };
   };
 
-  // Normalize row stats using tracked data (preferred) + details, with plating fallback to general list
+  // Normalize row stats using tracked data (preferred) + details, with plating fallback to general list - USERNAME FIRST
   const computeRowStats = (player) => {
-    // Unwrap detail payload if wrapped as {cached, time, data: {...}}
-    let details = playerDetails[player.id] || {};
+    // Use username-based details cache
+    let details = playerDetails[player.uname] || {};
     if (details && typeof details === 'object' && details.data) {
       details = details.data;
     }
