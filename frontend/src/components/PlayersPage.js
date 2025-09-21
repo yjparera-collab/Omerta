@@ -86,22 +86,33 @@ const PlayersPage = () => {
     });
 
     filtered.sort((a, b) => {
+      // Special handling for Position (Rank #) column to match exact UX expectations
+      if (sortField === 'position') {
+        if (sortDirection === 'asc') {
+          // ASC: #1, #2, #3, ... then UNRANKED (0) last
+          const aKey = (a.position === 0 || a.position == null) ? Number.POSITIVE_INFINITY : a.position;
+          const bKey = (b.position === 0 || b.position == null) ? Number.POSITIVE_INFINITY : b.position;
+          if (aKey !== bKey) return aKey - bKey;
+        } else {
+          // DESC: UNRANKED (0) first, then ... #N, #N-1, ..., #2, #1
+          const aGroup = (a.position === 0 || a.position == null) ? 0 : 1; // 0-group (unranked) first
+          const bGroup = (b.position === 0 || b.position == null) ? 0 : 1;
+          if (aGroup !== bGroup) return aGroup - bGroup; // unranked group comes first
+          const aKey = a.position || 0;
+          const bKey = b.position || 0;
+          if (aKey !== bKey) return bKey - aKey; // ranked: higher numbers first
+        }
+        // Tiebreaker by name (ascending)
+        const aName = (a.uname || '').toLowerCase();
+        const bName = (b.uname || '').toLowerCase();
+        if (aName < bName) return -1;
+        if (aName > bName) return 1;
+        return 0;
+      }
+
       let aVal, bVal;
-      
       switch (sortField) {
-        case 'position':
-          // Handle position sorting correctly for both directions
-          if (sortDirection === 'asc') {
-            // ASC: #1, #2, #3, #4, ... UNRANKED (best ranks first)
-            aVal = a.position === 0 ? 999999 : a.position;
-            bVal = b.position === 0 ? 999999 : b.position;
-          } else {
-            // DESC: UNRANKED, ..., #4, #3, #2, #1 (worst ranks first)
-            aVal = a.position === 0 ? -1 : a.position;
-            bVal = b.position === 0 ? -1 : b.position;
-          }
-          break;
-        case 'rank':
+        case 'rank': {
           const rankOrder = [
             "Empty-suit", "Delivery Boy", "Delivery Girl", "Picciotto", "Shoplifter", 
             "Pickpocket", "Thief", "Associate", "Mobster", "Soldier", "Swindler", 
@@ -113,6 +124,7 @@ const PlayersPage = () => {
           aVal = aVal === -1 ? 999 : aVal;
           bVal = bVal === -1 ? 999 : bVal;
           break;
+        }
         case 'wealth':
           aVal = playerDetails[a.id]?.wealth || 0;
           bVal = playerDetails[b.id]?.wealth || 0;
@@ -135,11 +147,15 @@ const PlayersPage = () => {
         bVal = bVal.toLowerCase();
       }
 
-      if (sortDirection === 'asc') {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      }
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+
+      // Generic tiebreaker by name (ascending)
+      const aName = (a.uname || '').toLowerCase();
+      const bName = (b.uname || '').toLowerCase();
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
+      return 0;
     });
 
     return filtered;
