@@ -9,6 +9,7 @@ const PlayersPage = () => {
   const [familyFilter, setFamilyFilter] = useState('');
   const [rankFilter, setRankFilter] = useState('');
   const [showDead, setShowDead] = useState(false);
+  const [showTrackedOnly, setShowTrackedOnly] = useState(false);
   const [sortField, setSortField] = useState('position');
   const [sortDirection, setSortDirection] = useState('asc');
   
