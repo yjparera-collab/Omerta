@@ -485,6 +485,42 @@ def get_notifications():
     notifications = data_manager.get_recent_notifications()
     return jsonify({"notifications": notifications})
 
+@app.route('/api/scraping/detective/targets')
+def get_detective_targets_list():
+    """Get list of detective targets with their detailed data"""
+    try:
+        cursor = data_manager.db.execute('''
+            SELECT dt.player_id, dt.username, pc.data, pc.last_updated
+            FROM detective_targets dt
+            LEFT JOIN player_cache pc ON dt.player_id = pc.user_id
+            WHERE dt.is_active = 1
+        ''')
+        
+        tracked_players = []
+        for row in cursor.fetchall():
+            player_id, username, data_json, last_updated = row
+            
+            player_data = {}
+            if data_json:
+                try:
+                    player_data = json.loads(data_json)
+                except:
+                    pass
+            
+            tracked_players.append({
+                "player_id": player_id,
+                "username": username,
+                "kills": player_data.get("kills", 0),
+                "shots": player_data.get("bullets_shot", {}).get("total", 0) if player_data.get("bullets_shot") else 0,
+                "wealth_level": player_data.get("wealth", 0),
+                "plating": player_data.get("plating", "Unknown"),
+                "last_updated": last_updated
+            })
+        
+        return jsonify({"tracked_players": tracked_players})
+    except Exception as e:
+        return jsonify({"error": str(e), "tracked_players": []})
+
 @app.route('/api/scraping/detective/add', methods=['POST'])
 def add_detective_targets():
     """Add players to detective tracking"""
