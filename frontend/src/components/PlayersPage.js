@@ -434,8 +434,8 @@ const PlayersPage = () => {
                         <td className="p-3">
                           <div className="font-semibold text-white text-base">{player.uname}</div>
                           <div className="text-xs text-slate-400 mt-1">
-                            <span className="mr-3">K: {details?.kills || 'N/A'}</span>
-                            <span>S: {details?.bullets_shot?.total || 'N/A'}</span>
+                            <span className="mr-3">Kills: {details?.kills || 'N/A'}</span>
+                            <span>Shots: {details?.bullets_shot?.total || 'N/A'}</span>
                           </div>
                         </td>
                         <td className="p-3">
