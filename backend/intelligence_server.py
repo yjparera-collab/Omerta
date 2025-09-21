@@ -21,8 +21,25 @@ mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
 
-# FastAPI app
-app = FastAPI(title="Omerta Intelligence Dashboard API")
+# Lifespan event handler
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    asyncio.create_task(intelligence_monitor())
+    print("[START] FastAPI Intelligence Dashboard started")
+    print("[CONNECT] WebSocket endpoint: ws://localhost:8001/ws")
+    print("[COMM] Connected to scraping service on port 5001")
+    
+    yield
+    
+    # Shutdown
+    client.close()
+    print("[SECURE] FastAPI server shutting down")
+
+# FastAPI app with lifespan
+app = FastAPI(title="Omerta Intelligence Dashboard API", lifespan=lifespan)
 
 # CORS
 app.add_middleware(
