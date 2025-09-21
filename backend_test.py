@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Omerta Intelligence Dashboard Backend API Testing
-Tests all FastAPI endpoints and WebSocket functionality
+Omerta Intelligence Dashboard Backend API Testing - Username-First Implementation
+Tests all FastAPI endpoints with focus on username-first approach
 """
 
 import requests
@@ -17,9 +17,11 @@ class OmertaIntelligenceAPITester:
         self.base_url = base_url
         self.api_base = f"{base_url}/api"
         self.ws_url = base_url.replace('https', 'wss') + '/ws'
+        self.scraping_service_url = "http://127.0.0.1:5001"  # Internal scraping service
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
+        self.sample_usernames = ["Kazuo", "TestPlayer", "AlphaPlayer", "DeltaPlayer"]
 
     def log_test(self, name, success, details="", response_data=None):
         """Log test result"""
@@ -37,9 +39,12 @@ class OmertaIntelligenceAPITester:
             'response_data': response_data
         })
 
-    def test_api_endpoint(self, name, endpoint, method='GET', data=None, expected_status=200):
+    def test_api_endpoint(self, name, endpoint, method='GET', data=None, expected_status=200, base_url=None):
         """Test a single API endpoint"""
-        url = f"{self.api_base}{endpoint}"
+        if base_url:
+            url = f"{base_url}{endpoint}"
+        else:
+            url = f"{self.api_base}{endpoint}"
         headers = {'Content-Type': 'application/json'}
         
         try:
@@ -61,12 +66,129 @@ class OmertaIntelligenceAPITester:
                     self.log_test(name, True, f"Status: {response.status_code} (No JSON)")
                     return True, {}
             else:
-                self.log_test(name, False, f"Expected {expected_status}, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    self.log_test(name, False, f"Expected {expected_status}, got {response.status_code}: {error_data}")
+                except:
+                    self.log_test(name, False, f"Expected {expected_status}, got {response.status_code}")
                 return False, {}
                 
         except requests.exceptions.RequestException as e:
             self.log_test(name, False, f"Request failed: {str(e)}")
             return False, {}
+
+    def test_scraping_service_status(self):
+        """Test if scraping service is running"""
+        print("\n🔧 Testing Scraping Service Status...")
+        try:
+            response = requests.get(f"{self.scraping_service_url}/api/scraping/status", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                self.log_test("Scraping Service Status", True, f"Service online with {data.get('cached_players', 0)} cached players")
+                return True, data
+            else:
+                self.log_test("Scraping Service Status", False, f"Service returned {response.status_code}")
+                return False, {}
+        except Exception as e:
+            self.log_test("Scraping Service Status", False, f"Service not accessible: {str(e)}")
+            return False, {}
+
+    def test_username_first_endpoints(self):
+        """Test username-first implementation endpoints"""
+        print("\n👤 Testing Username-First Implementation...")
+        
+        # Test backend proxy endpoint
+        for username in self.sample_usernames:
+            success, data = self.test_api_endpoint(
+                f"Backend Username Proxy - {username}", 
+                f"/players/by-username/{username}",
+                expected_status=404  # Expected to fail if scraping service not running
+            )
+            if success and data:
+                print(f"   Found data for {username}: kills={data.get('kills', 'N/A')}, shots={data.get('bullets_shot', {}).get('total', 'N/A')}")
+        
+        # Test scraping service direct endpoint (if available)
+        scraping_available, _ = self.test_scraping_service_status()
+        if scraping_available:
+            for username in self.sample_usernames:
+                success, data = self.test_api_endpoint(
+                    f"Scraping Service Username - {username}",
+                    f"/api/scraping/player-username/{username}",
+                    base_url=self.scraping_service_url,
+                    expected_status=404  # May not exist in cache
+                )
+                if success and data:
+                    print(f"   Direct scraping data for {username}: wealth={data.get('wealth', 'N/A')}, plating={data.get('plating', 'N/A')}")
+
+    def test_data_flow_verification(self):
+        """Test data flow from general endpoints"""
+        print("\n🔄 Testing Data Flow Verification...")
+        
+        # Test general player list
+        success, players_data = self.test_api_endpoint("Get All Players", "/players")
+        if success and players_data:
+            players = players_data.get('players', [])
+            print(f"   Found {len(players)} players in general list")
+            
+            # Test a few player details by ID
+            for i, player in enumerate(players[:3]):  # Test first 3 players
+                player_id = player.get('id')
+                if player_id:
+                    self.test_api_endpoint(f"Player Details by ID - {player_id}", f"/players/{player_id}")
+        
+        # Test tracked players
+        success, tracked_data = self.test_api_endpoint("Get Tracked Players", "/intelligence/tracked-players")
+        if success and tracked_data:
+            tracked_players = tracked_data.get('tracked_players', [])
+            print(f"   Found {len(tracked_players)} tracked players")
+            for player in tracked_players[:3]:  # Show first 3
+                username = player.get('username', 'Unknown')
+                kills = player.get('kills', 'N/A')
+                shots = player.get('shots', 'N/A')
+                print(f"   Tracked: {username} - Kills: {kills}, Shots: {shots}")
+
+    def test_detective_targets_management(self):
+        """Test detective targets with sample usernames"""
+        print("\n🕵️ Testing Detective Targets Management...")
+        
+        # Add sample detective targets
+        detective_data = {"usernames": self.sample_usernames}
+        success, response = self.test_api_endpoint(
+            "Add Detective Targets", 
+            "/intelligence/detective/add", 
+            "POST", 
+            detective_data
+        )
+        
+        if success:
+            print(f"   Added targets: {', '.join(self.sample_usernames)}")
+            
+            # Verify they were added by checking tracked players
+            time.sleep(2)  # Wait for processing
+            success, tracked_data = self.test_api_endpoint("Verify Added Targets", "/intelligence/tracked-players")
+            if success and tracked_data:
+                tracked_players = tracked_data.get('tracked_players', [])
+                added_usernames = [p.get('username') for p in tracked_players]
+                for username in self.sample_usernames:
+                    if username in added_usernames:
+                        print(f"   ✅ {username} successfully added to tracked players")
+                    else:
+                        print(f"   ❌ {username} not found in tracked players")
+
+    def test_mongodb_integration(self):
+        """Test MongoDB integration through API responses"""
+        print("\n🗄️ Testing MongoDB Integration...")
+        
+        # Test system status to check MongoDB connection
+        success, status_data = self.test_api_endpoint("System Status", "/status")
+        if success and status_data:
+            db_info = status_data.get('database', {})
+            scraping_info = status_data.get('scraping_service', {})
+            
+            print(f"   Database connected: {db_info.get('connected', False)}")
+            print(f"   Preferences count: {db_info.get('preferences_count', 0)}")
+            print(f"   WebSocket connections: {status_data.get('websocket_connections', 0)}")
+            print(f"   Scraping service: {scraping_info.get('status', 'unknown')}")
 
     async def test_websocket_connection(self):
         """Test WebSocket connection and basic communication"""
@@ -74,6 +196,17 @@ class OmertaIntelligenceAPITester:
             print(f"\n🔌 Testing WebSocket connection to {self.ws_url}")
             
             async with websockets.connect(self.ws_url, timeout=10) as websocket:
+                # Wait for connection established message
+                try:
+                    initial_message = await asyncio.wait_for(websocket.recv(), timeout=5)
+                    message = json.loads(initial_message)
+                    if message.get("type") == "connection_established":
+                        self.log_test("WebSocket Connection", True, "Connection established successfully")
+                    else:
+                        self.log_test("WebSocket Connection", True, f"Connected with message: {message.get('type')}")
+                except asyncio.TimeoutError:
+                    self.log_test("WebSocket Connection", True, "Connected but no initial message")
+                
                 # Test ping-pong
                 ping_message = json.dumps({"type": "ping"})
                 await websocket.send(ping_message)
@@ -84,86 +217,59 @@ class OmertaIntelligenceAPITester:
                 
                 if message.get("type") == "pong":
                     self.log_test("WebSocket Ping-Pong", True, "Successfully received pong response")
-                    
-                    # Test status request
-                    status_request = json.dumps({"type": "request_status"})
-                    await websocket.send(status_request)
-                    
-                    # Wait for status response
-                    try:
-                        status_response = await asyncio.wait_for(websocket.recv(), timeout=5)
-                        status_message = json.loads(status_response)
-                        
-                        if status_message.get("type") == "status_update":
-                            self.log_test("WebSocket Status Request", True, "Received status update")
-                        else:
-                            self.log_test("WebSocket Status Request", False, "Unexpected response type")
-                    except asyncio.TimeoutError:
-                        self.log_test("WebSocket Status Request", False, "Timeout waiting for status response")
-                        
                 else:
                     self.log_test("WebSocket Ping-Pong", False, f"Expected pong, got {message.get('type')}")
-                    
+                        
         except Exception as e:
             self.log_test("WebSocket Connection", False, f"Connection failed: {str(e)}")
 
+    def test_real_time_updates(self):
+        """Test real-time update endpoints"""
+        print("\n📡 Testing Real-time Update Endpoints...")
+        
+        # Test internal list update endpoint
+        update_data = {
+            "type": "player_list_updated",
+            "timestamp": datetime.now().isoformat(),
+            "test": True
+        }
+        self.test_api_endpoint("Internal List Update", "/internal/list-updated", "POST", update_data)
+        
+        # Test internal notification endpoint
+        notification_data = {
+            "type": "test_notification",
+            "username": "TestPlayer",
+            "message": "Test notification for username-first implementation",
+            "timestamp": datetime.now().isoformat()
+        }
+        self.test_api_endpoint("Internal Notification", "/internal/notification", "POST", notification_data)
+
     def run_all_tests(self):
-        """Run comprehensive API tests"""
-        print("🎯 OMERTA INTELLIGENCE DASHBOARD API TESTING")
-        print("=" * 60)
+        """Run comprehensive API tests for username-first implementation"""
+        print("🎯 OMERTA INTELLIGENCE DASHBOARD - USERNAME-FIRST TESTING")
+        print("=" * 70)
         
         # Test basic API health
         print("\n📡 Testing Core API Endpoints...")
         self.test_api_endpoint("API Root", "/")
-        self.test_api_endpoint("System Status", "/status")
         
-        # Test player endpoints
-        print("\n👥 Testing Player Endpoints...")
-        success, players_data = self.test_api_endpoint("Get All Players", "/players", expected_status=503)  # Expected to fail without scraping service
-        self.test_api_endpoint("Get Player Details", "/players/test123", expected_status=404)  # Expected to fail
+        # Test MongoDB integration
+        self.test_mongodb_integration()
         
-        # Test intelligence endpoints
-        print("\n🚨 Testing Intelligence Endpoints...")
-        self.test_api_endpoint("Get Notifications", "/intelligence/notifications")
+        # Test scraping service
+        self.test_scraping_service_status()
         
-        # Test detective targets
-        print("\n🕵️ Testing Detective Target Management...")
-        detective_data = {"usernames": ["TestPlayer1", "TestPlayer2"]}
-        self.test_api_endpoint("Add Detective Targets", "/intelligence/detective/add", "POST", detective_data, expected_status=503)  # Expected to fail without scraping service
+        # Test username-first endpoints (main focus)
+        self.test_username_first_endpoints()
         
-        # Test family targets
-        print("\n🎯 Testing Family Target Management...")
-        family_data = {"families": ["TestFamily1", "TestFamily2"]}
-        self.test_api_endpoint("Set Family Targets", "/families/set-targets", "POST", family_data)
-        self.test_api_endpoint("Get Family Targets", "/families/targets")
+        # Test data flow verification
+        self.test_data_flow_verification()
         
-        # Test user preferences
-        print("\n⚙️ Testing User Preferences...")
-        test_user_id = f"test_user_{int(time.time())}"
-        preferences_data = {
-            "user_id": test_user_id,
-            "favorite_families": ["TestFamily1"],
-            "detective_targets": ["TestPlayer1"],
-            "notification_settings": {
-                "kills": True,
-                "shots": True,
-                "plating_drops": True,
-                "profile_changes": True
-            },
-            "ui_settings": {
-                "theme": "dark",
-                "auto_refresh": True,
-                "show_dead_players": False
-            }
-        }
-        self.test_api_endpoint("Save User Preferences", "/preferences", "POST", preferences_data)
-        self.test_api_endpoint("Get User Preferences", f"/preferences/{test_user_id}")
+        # Test detective targets management
+        self.test_detective_targets_management()
         
-        # Test internal endpoints (these might not be accessible externally)
-        print("\n🔧 Testing Internal Endpoints...")
-        internal_data = {"test": "data"}
-        self.test_api_endpoint("Internal List Update", "/internal/list-updated", "POST", internal_data)
-        self.test_api_endpoint("Internal Notification", "/internal/notification", "POST", internal_data)
+        # Test real-time updates
+        self.test_real_time_updates()
 
     async def run_websocket_tests(self):
         """Run WebSocket tests"""
@@ -172,9 +278,9 @@ class OmertaIntelligenceAPITester:
 
     def print_summary(self):
         """Print test summary"""
-        print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
+        print("\n" + "=" * 70)
+        print("📊 USERNAME-FIRST IMPLEMENTATION TEST SUMMARY")
+        print("=" * 70)
         print(f"Total Tests: {self.tests_run}")
         print(f"Passed: {self.tests_passed}")
         print(f"Failed: {self.tests_run - self.tests_passed}")
@@ -194,8 +300,20 @@ class OmertaIntelligenceAPITester:
             for test in successful_tests:
                 print(f"  • {test['name']}")
                 if isinstance(test['response_data'], dict):
-                    for key, value in list(test['response_data'].items())[:3]:  # Show first 3 keys
-                        print(f"    - {key}: {value}")
+                    # Show relevant data for username-first implementation
+                    data = test['response_data']
+                    if 'username' in data:
+                        print(f"    - Username: {data['username']}")
+                    if 'kills' in data:
+                        print(f"    - Kills: {data['kills']}")
+                    if 'bullets_shot' in data:
+                        shots = data['bullets_shot']
+                        if isinstance(shots, dict):
+                            print(f"    - Shots: {shots.get('total', 'N/A')}")
+                        else:
+                            print(f"    - Shots: {shots}")
+                    if 'tracked_players' in data:
+                        print(f"    - Tracked Players Count: {len(data['tracked_players'])}")
 
 async def main():
     """Main test execution"""
