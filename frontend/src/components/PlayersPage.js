@@ -76,8 +76,11 @@ const PlayersPage = () => {
         return false;
       }
       // NEW: Filter for tracked players only
-      if (showTrackedOnly && !playerDetails[player.id]) {
-        return false;
+      if (showTrackedOnly) {
+        const isTracked = trackedPlayers.some(tp => tp.player_id === player.id || tp.username === player.uname);
+        if (!isTracked) {
+          return false;
+        }
       }
       return true;
     });
