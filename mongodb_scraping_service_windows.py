@@ -455,13 +455,18 @@ if __name__ == '__main__':
         batch_thread.daemon = True
         batch_thread.start()
 
-        print(f"\n[START] MONGODB OMERTA INTELLIGENCE SCRAPING ACTIVE (WINDOWS)")
-        print(f"🪟 Chrome browser venster is zichtbaar voor handmatige Cloudflare bypass")
+        print(f"\n" + "="*60)
+        print(f"🎯 MONGODB OMERTA INTELLIGENCE SCRAPING ACTIVE (WINDOWS)")
+        print(f"🛡️  ANTI-DETECTION BROWSER: Advanced Cloudflare bypass")
+        print(f"🪟 Chrome browser venster is ZICHTBAAR voor handmatige hulp")
         print(f"[LIVE] Smart List Worker: Every {MAIN_LIST_INTERVAL} seconds")
-        print(f"[BATCH] Detail Worker: Detective targets every 60 seconds")
+        print(f"[BATCH] Detail Worker: Detective targets every 90 seconds")
         print(f"[CACHE] Using MongoDB for persistent data")
         print(f"[TARGET] Ready for FastAPI integration on port 8001")
-        print(f"\n💡 TIP: Laat het Chrome venster open - dit is nodig voor scraping!")
+        print(f"\n💡 TIP: Laat het Chrome venster open - automatische bypass actief!")
+        print(f"🔧 HELP: Los CAPTCHA's op als die verschijnen")
+        print(f"🛑 STOP: Ctrl+C om te stoppen")
+        print(f"="*60)
 
         while True:
             time.sleep(100)
