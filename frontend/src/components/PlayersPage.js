@@ -161,9 +161,9 @@ const PlayersPage = () => {
           break;
         }
         case 'wealth':
-          // Sort by wealth using details if available; fallback -1 to push unknowns
-          const aDetailWealth = toNumber(playerDetails[a.id]?.wealth);
-          const bDetailWealth = toNumber(playerDetails[b.id]?.wealth);
+          // Sort by wealth using username-based details if available; fallback -1 to push unknowns
+          const aDetailWealth = toNumber(playerDetails[a.uname]?.wealth);
+          const bDetailWealth = toNumber(playerDetails[b.uname]?.wealth);
           aVal = aDetailWealth ?? -1;
           bVal = bDetailWealth ?? -1;
           break;
