@@ -375,6 +375,47 @@ def get_player_details(player_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/scraping/player-username/<username>')
+def get_player_detail_by_username(username):
+    """Get specific player details by USERNAME (primary method)"""
+    try:
+        # Find player in cache by username
+        player = data_manager.db.player_cache.find_one(
+            {"username": username}, 
+            {"_id": 0}
+        )
+        
+        if not player:
+            return jsonify({"error": f"Player {username} not found"}), 404
+        
+        # Parse player data and handle wrapper
+        try:
+            raw_data = json.loads(player.get('data', '{}'))
+            # Handle the data wrapper if present
+            if isinstance(raw_data, dict) and 'data' in raw_data:
+                player_data = raw_data['data']
+            else:
+                player_data = raw_data
+        except:
+            player_data = {}
+        
+        # Return detailed player data with username as primary key
+        return jsonify({
+            "username": username,
+            "user_id": player_data.get("user_id", player.get("user_id")),
+            "kills": player_data.get("kills", 0),
+            "bullets_shot": player_data.get("bullets_shot", {"total": 0}),
+            "wealth": player_data.get("wealth", 0),
+            "plating": player_data.get("plating", "Unknown"),
+            "rank_name": player_data.get("rank_name", "Unknown"),
+            "position": player_data.get("position", 0),
+            "family_name": player_data.get("family_name", ""),
+            "status": player_data.get("status", 1),
+            "last_updated": player.get("last_updated")
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- Background Workers ---
 def smart_list_worker(driver, data_manager, priority_queue):
     """Worker that fetches the main user list periodically"""
