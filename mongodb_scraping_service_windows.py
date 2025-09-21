@@ -152,25 +152,29 @@ class IntelligenceDataManager:
                     "username": target['username'],
                     "player_id": target.get('player_id', ''),
                     "added_timestamp": target.get('added_timestamp', ''),
-                    "kills": 0,
-                    "shots": 0,
-                    "wealth": "Unknown",
-                    "plating": "Unknown",
+                    # Leave fields undefined unless we have real data
                     "last_updated": None
                 }
                 
                 if cached_data:
                     try:
                         data = json.loads(cached_data.get('data', '{}'))
+                        # Normalize bullets_shot total
+                        bs = data.get('bullets_shot')
+                        shots_total = None
+                        if isinstance(bs, dict):
+                            shots_total = bs.get('total')
+                        else:
+                            shots_total = bs
                         player_info.update({
-                            "kills": data.get('kills', 0),
-                            "shots": data.get('bullets_shot', 0),
-                            "wealth": data.get('wealth', 'Unknown'),
-                            "plating": data.get('plating', 'Unknown'),
+                            "kills": data.get('kills'),
+                            "shots": shots_total,
+                            "wealth": data.get('wealth'),
+                            "plating": data.get('plating'),
                             "last_updated": cached_data.get('last_updated')
                         })
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"[TARGETS] Parse error for {target['username']}: {e}")
                 
                 result.append(player_info)
             
