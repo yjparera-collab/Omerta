@@ -355,19 +355,19 @@ const FamiliesPage = () => {
                 ) : (
                   <div className="p-4 space-y-3">
                     {detectiveTargets.map((target) => {
-                      const details = playerDetails[target.id];
-                      const status = getPlayerStatus(target);
+                      const playerFromList = players.find(p => p.id === target.player_id || p.uname === target.username);
+                      const status = playerFromList ? getPlayerStatus(playerFromList) : { text: 'UNKNOWN', class: 'text-gray-400', bg: 'bg-gray-900/20' };
                       
                       return (
                         <div
-                          key={target.id}
+                          key={target.player_id || target.username}
                           className="bg-slate-700/30 border border-slate-600/30 rounded-lg p-4 hover:bg-slate-700/40 transition-all duration-200"
                         >
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <div className="font-semibold text-white text-lg">{target.uname}</div>
+                              <div className="font-semibold text-white text-lg">{target.username}</div>
                               <div className="text-sm text-slate-400">
-                                {target.rank_name} • {target.f_name}
+                                {playerFromList?.rank_name || 'Unknown Rank'} • {playerFromList?.f_name || 'Unknown Family'}
                               </div>
                             </div>
                             <span className={`px-2 py-1 rounded text-xs font-medium ${status.class} ${status.bg}`}>
@@ -380,32 +380,30 @@ const FamiliesPage = () => {
                             <div className="bg-red-900/20 border border-red-500/30 rounded p-3">
                               <div className="text-red-400 text-xs font-semibold mb-1">ELIMINATIONS</div>
                               <div className="text-white text-xl font-bold">
-                                {formatNumber(details?.kills || 0)}
+                                {formatNumber(target.kills || 0)}
                               </div>
                             </div>
                             <div className="bg-yellow-900/20 border border-yellow-500/30 rounded p-3">
                               <div className="text-yellow-400 text-xs font-semibold mb-1">SHOTS FIRED</div>
                               <div className="text-white text-xl font-bold">
-                                {formatNumber(details?.bullets_shot?.total || 0)}
+                                {formatNumber(target.shots || 0)}
                               </div>
                             </div>
                           </div>
 
                           {/* Additional Intel */}
-                          {details && (
-                            <div className="mt-3 pt-3 border-t border-slate-600/30">
-                              <div className="grid grid-cols-2 gap-4 text-xs">
-                                <div>
-                                  <span className="text-slate-400">Plating:</span>
-                                  <span className="text-white ml-2">{details.plating || 'Unknown'}</span>
-                                </div>
-                                <div>
-                                  <span className="text-slate-400">Rank:</span>
-                                  <span className="text-yellow-400 ml-2">#{target.position || 'Unranked'}</span>
-                                </div>
+                          <div className="mt-3 pt-3 border-t border-slate-600/30">
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <span className="text-slate-400">Plating:</span>
+                                <span className="text-white ml-2">{target.plating || 'Unknown'}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Rank:</span>
+                                <span className="text-yellow-400 ml-2">#{playerFromList?.position || 'Unranked'}</span>
                               </div>
                             </div>
-                          )}
+                          </div>
                         </div>
                       );
                     })}
