@@ -363,7 +363,7 @@ def create_compatible_browser():
         return driver
 
 def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
-    """Smart Cloudflare handler with improved detection (from working version)"""
+    """Smart Cloudflare handler with improved detection"""
     print(f"\n[{worker_name}] Navigating to: {url}")
     
     try:
@@ -372,7 +372,7 @@ def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
         
         page_source = driver.page_source.lower()
         
-        # IMPROVED: Better Cloudflare detection (from working version)
+        # IMPROVED: Better Cloudflare detection
         if "cloudflare" in page_source or "just a moment" in page_source or "checking your browser" in page_source:
             print(f"\n🔒 CLOUDFLARE GEDETECTEERD!")
             print(f"📋 ACTIES NODIG:")
@@ -386,7 +386,7 @@ def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
             while time.time() - start_time < timeout:
                 try:
                     current_source = driver.page_source.lower()
-                    # IMPROVED: Better detection logic (from working version)
+                    # IMPROVED: Better detection logic
                     if "cloudflare" not in current_source and "just a moment" not in current_source and "checking your browser" not in current_source:
                         print(f"\n✅ CLOUDFLARE GEPASSEERD! Scraper gaat verder...")
                         return True
