@@ -183,7 +183,12 @@ class IntelligenceDataManager:
             return
 
         old_data = self.previous_player_data[user_id]
-        family = new_data.get('family', 'Unknown')
+        # Fix: Get family name properly from nested structure
+        family_info = new_data.get('family', {})
+        if isinstance(family_info, dict):
+            family_name = family_info.get('name', 'Independent')
+        else:
+            family_name = 'Independent'
 
         # Check for kills change
         old_kills = old_data.get('kills', 0)
@@ -193,15 +198,15 @@ class IntelligenceDataManager:
             if kill_diff > 0:
                 self.db.execute(
                     'INSERT INTO analytics_log (player_id, username, event_type, old_value, new_value, family) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, username, 'kill', str(old_kills), str(new_kills), family)
+                    (user_id, username, 'kill', str(old_kills), str(new_kills), family_name)
                 )
                 
                 # Generate intelligence notification
-                message = f"[TARGET] {username} ({family}) scored {kill_diff} new kill{'s' if kill_diff > 1 else ''}"
+                message = f"[TARGET] {username} ({family_name}) scored {kill_diff} new kill{'s' if kill_diff > 1 else ''}"
                 self.create_intelligence_notification(user_id, username, 'kill_update', message, {
                     'old_kills': old_kills,
                     'new_kills': new_kills,
-                    'family': family
+                    'family': family_name
                 })
 
         # Check for shots change
@@ -212,15 +217,15 @@ class IntelligenceDataManager:
             if shot_diff > 0:
                 self.db.execute(
                     'INSERT INTO analytics_log (player_id, username, event_type, old_value, new_value, family) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, username, 'shot', str(old_shots), str(new_shots), family)
+                    (user_id, username, 'shot', str(old_shots), str(new_shots), family_name)
                 )
                 
                 # Generate intelligence notification
-                message = f"[SHOTS] {username} ({family}) fired {shot_diff} shot{'s' if shot_diff > 1 else ''}"
+                message = f"[SHOTS] {username} ({family_name}) fired {shot_diff} shot{'s' if shot_diff > 1 else ''}"
                 self.create_intelligence_notification(user_id, username, 'shot_update', message, {
                     'old_shots': old_shots,
                     'new_shots': new_shots,
-                    'family': family
+                    'family': family_name
                 })
 
         # Check for plating change - CRITICAL INTELLIGENCE
@@ -230,24 +235,24 @@ class IntelligenceDataManager:
             if 'none' in new_plating.lower() or 'no plating' in new_plating.lower():
                 self.db.execute(
                     'INSERT INTO analytics_log (player_id, username, event_type, old_value, new_value, family) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, username, 'plating', str(old_plating), str(new_plating), family)
+                    (user_id, username, 'plating', str(old_plating), str(new_plating), family_name)
                 )
                 
                 # CRITICAL INTELLIGENCE NOTIFICATION
-                message = f"[CRITICAL] CRITICAL: {username} ({family}) plating dropped to {new_plating} - VULNERABLE TARGET!"
+                message = f"[CRITICAL] CRITICAL: {username} ({family_name}) plating dropped to {new_plating} - VULNERABLE TARGET!"
                 self.create_intelligence_notification(user_id, username, 'plating_drop', message, {
                     'old_plating': old_plating,
                     'new_plating': new_plating,
-                    'family': family
+                    'family': family_name
                 })
 
         # Check for profile visibility change
         old_kills_visible = old_data.get('kills') not in ['N/A', None, '']
         new_kills_visible = new_data.get('kills') not in ['N/A', None, '']
         if not old_kills_visible and new_kills_visible:
-            message = f"[INTEL] {username} ({family}) profile became public - intelligence now available"
+            message = f"[INTEL] {username} ({family_name}) profile became public - intelligence now available"
             self.create_intelligence_notification(user_id, username, 'profile_public', message, {
-                'family': family,
+                'family': family_name,
                 'kills': new_data.get('kills'),
                 'shots': new_data.get('bullets_shot', {}).get('total', 0) if new_data.get('bullets_shot') else 0
             })
