@@ -321,19 +321,25 @@ async def intelligence_monitor():
         
         await asyncio.sleep(10)  # Check every 10 seconds
 
-# Start background task
-@app.on_event("startup")
-async def startup_event():
-    # Start intelligence monitoring
+# Lifespan event handler
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     asyncio.create_task(intelligence_monitor())
     print("[START] FastAPI Intelligence Dashboard started")
     print("[CONNECT] WebSocket endpoint: ws://localhost:8001/ws")
     print("[COMM] Connected to scraping service on port 5001")
-
-@app.on_event("shutdown")
-async def shutdown_event():
+    
+    yield
+    
+    # Shutdown
     client.close()
     print("[SECURE] FastAPI server shutting down")
+
+# Update the FastAPI app to use lifespan
+app = FastAPI(title="Omerta Intelligence Dashboard API", lifespan=lifespan)
 
 # Configure logging
 logging.basicConfig(
