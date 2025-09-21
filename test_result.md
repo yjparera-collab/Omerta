@@ -179,3 +179,5 @@ test_plan:
 agent_communication:
     - agent: "main"
       message: "Implemented corrected Rank/Position sorting per user spec. Please validate: (1) Clicking Rank header cycles asc/desc; (2) Asc shows #1..#N then unranked (—) at bottom; (3) Desc shows unranked (—) first, then #N..#1; (4) Tie-breakers by name when positions equal."
+    - agent: "testing"
+      message: "RANK SORTING COMPLETELY BROKEN: The sorting behavior is inverted from requirements. First click shows descending arrow (🔽) but sorts in wrong order (unranked first, then #6 down to #1). Second click shows ascending arrow (🔼) but sorts #1 to #6 then unranked. Both the visual indicators and sort orders are backwards. Need to fix: (1) Arrow direction logic, (2) Ascending sort order, (3) Descending sort order. Only alphabetical tiebreaker works correctly."
