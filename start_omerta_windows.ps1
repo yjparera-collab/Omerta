@@ -32,10 +32,10 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot
 Write-Host "✓ Backend starting on port 8001" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "[4/5] Starting Scraping Service..." -ForegroundColor Cyan  
+Write-Host "[4/5] Starting Scraping Service (Windows - Visible Browser)..." -ForegroundColor Cyan  
 Start-Sleep 3
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; python mongodb_scraping_service.py" -WindowStyle Normal
-Write-Host "✓ Scraping service starting on port 5001" -ForegroundColor Green
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; python mongodb_scraping_service_windows.py" -WindowStyle Normal
+Write-Host "✓ Scraping service starting on port 5001 (VISIBLE browser)" -ForegroundColor Green
 Write-Host ""
 
 Write-Host "[5/5] Starting Frontend..." -ForegroundColor Cyan
