@@ -158,19 +158,20 @@ class IntelligenceDataManager:
                 
                 if cached_data:
                     try:
-                        data = json.loads(cached_data.get('data', '{}'))
+                        raw = json.loads(cached_data.get('data', '{}'))
+                        inner = raw.get('data', raw) if isinstance(raw, dict) else raw
                         # Normalize bullets_shot total
-                        bs = data.get('bullets_shot')
+                        bs = inner.get('bullets_shot') if isinstance(inner, dict) else None
                         shots_total = None
                         if isinstance(bs, dict):
                             shots_total = bs.get('total')
                         else:
                             shots_total = bs
                         player_info.update({
-                            "kills": data.get('kills'),
+                            "kills": inner.get('kills'),
                             "shots": shots_total,
-                            "wealth": data.get('wealth'),
-                            "plating": data.get('plating'),
+                            "wealth": inner.get('wealth'),
+                            "plating": inner.get('plating'),
                             "last_updated": cached_data.get('last_updated')
                         })
                     except Exception as e:
