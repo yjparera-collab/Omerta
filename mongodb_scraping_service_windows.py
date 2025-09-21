@@ -374,43 +374,52 @@ def smart_list_worker(driver, data_manager, priority_queue):
         time.sleep(MAIN_LIST_INTERVAL)
 
 def batch_detail_worker(driver, data_manager, priority_queue):
-    """Worker that processes detective targets in batches"""
+    """Worker that processes detective targets with improved Cloudflare handling"""
     while True:
         try:
             if data_manager.detective_targets:
-                print(f"[DETAIL_WORKER] Processing {len(data_manager.detective_targets)} detective targets...")
+                print(f"\n[DETAIL_WORKER] Processing {len(data_manager.detective_targets)} detective targets...")
                 
                 for username in list(data_manager.detective_targets):
                     try:
                         url = USER_DETAIL_URL_TEMPLATE.format(username)
-                        driver.get(url)
-                        time.sleep(1)
+                        print(f"[DETAIL_WORKER] Getting {username}...")
                         
-                        page_source = driver.page_source
-                        soup = BeautifulSoup(page_source, 'html.parser')
-                        
-                        # Try to parse user detail JSON
-                        if soup.text.strip().startswith('{'):
-                            user_data = json.loads(soup.text.strip())
+                        # Use improved Cloudflare handler
+                        if smart_cloudflare_handler(driver, url, worker_name="DETAIL_WORKER", timeout=30):
+                            time.sleep(1)  # Brief wait after Cloudflare
+                            page_source = driver.page_source
+                            soup = BeautifulSoup(page_source, 'html.parser')
                             
-                            if isinstance(user_data, dict) and user_data.get('user_id'):
-                                data_manager.cache_player_data(
-                                    user_data['user_id'],
-                                    username,
-                                    user_data
-                                )
-                                print(f"[DETAIL_WORKER] Updated data for {username}")
+                            # Try to parse user detail JSON
+                            if soup.text.strip().startswith('{'):
+                                user_data = json.loads(soup.text.strip())
+                                
+                                if isinstance(user_data, dict) and user_data.get('user_id'):
+                                    data_manager.cache_player_data(
+                                        user_data['user_id'],
+                                        username,
+                                        user_data
+                                    )
+                                    print(f"[DETAIL_WORKER] ✅ Updated data for {username}")
+                        else:
+                            print(f"[DETAIL_WORKER] ❌ Failed to access {username}")
+                        
+                        # Random delay between requests to avoid detection
+                        delay = random.uniform(3, 6)
+                        time.sleep(delay)
                             
                     except Exception as e:
-                        print(f"[DETAIL_WORKER] Error processing {username}: {e}")
+                        print(f"[DETAIL_WORKER] ❌ Error processing {username}: {e}")
                         
             else:
-                print(f"[DETAIL_WORKER] No detective targets configured")
+                print(f"[DETAIL_WORKER] ℹ️ No detective targets configured")
                 
         except Exception as e:
-            print(f"[DETAIL_WORKER] Worker error: {e}")
+            print(f"[DETAIL_WORKER] ❌ Worker error: {e}")
             
-        time.sleep(60)  # Process detective targets every minute
+        print(f"[DETAIL_WORKER] ⏳ Next batch in 90 seconds")
+        time.sleep(90)  # Longer interval for stealth
 
 # --- MAIN EXECUTION ---
 if __name__ == '__main__':
