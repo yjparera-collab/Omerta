@@ -461,9 +461,9 @@ if __name__ == '__main__':
         flask_thread.start()
         print("[WEB] Flask scraping API started on http://127.0.0.1:5001")
 
-        # Setup VISIBLE anti-detection browser for Windows
-        print("\n--- SETTING UP ANTI-DETECTION BROWSER FOR CLOUDFLARE ---")
-        driver = create_anti_detection_browser()
+        # Setup VISIBLE compatible browser for Windows
+        print("\n--- SETTING UP COMPATIBLE BROWSER FOR CLOUDFLARE ---")
+        driver = create_compatible_browser()
         
         print("[BROWSER] ✅ Ready to bypass Cloudflare - browser is VISIBLE")
 
