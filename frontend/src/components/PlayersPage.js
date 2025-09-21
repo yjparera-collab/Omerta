@@ -23,7 +23,7 @@ const PlayersPage = () => {
     return Number.isFinite(n) ? n : undefined;
   };
 
-  // Load player details for wealth/kills/shots display
+  // Load player details for wealth/kills/shots display - USERNAME FIRST
   useEffect(() => {
     const loadPlayerDetails = async () => {
       const details = {};
@@ -31,9 +31,10 @@ const PlayersPage = () => {
       const prefetchList = players.slice(0, 150);
       for (const player of prefetchList) {
         try {
-          const detail = await getPlayerDetails(player.id);
+          // Use username-first approach
+          const detail = await getPlayerDetailsByUsername(player.uname);
           if (detail) {
-            details[player.id] = detail;
+            details[player.uname] = detail; // Key by username
           }
         } catch (error) {
           console.error(`Failed to load details for ${player.uname}:`, error);
@@ -45,7 +46,7 @@ const PlayersPage = () => {
     if (players.length > 0) {
       loadPlayerDetails();
     }
-  }, [players, getPlayerDetails]);
+  }, [players, getPlayerDetailsByUsername]);
 
   // Ensure detective targets (tracked players) always have details loaded
   useEffect(() => {
