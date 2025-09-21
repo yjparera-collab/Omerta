@@ -23,3 +23,10 @@ numpy>=1.26.0
 python-multipart>=0.0.9
 jq>=1.6.0
 typer>=0.9.0
+
+# Scraping service dependencies
+undetected-chromedriver>=3.5.0
+beautifulsoup4>=4.12.0
+selenium>=4.15.0
+flask>=3.0.0
+aiohttp>=3.9.0
