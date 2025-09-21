@@ -195,6 +195,74 @@ class IntelligenceDataManager:
         except Exception as e:
             print(f"[ERROR] Adding notification: {e}")
 
+    def get_all_players(self):
+        """Get all players from cache"""
+        try:
+            players = list(self.db.player_cache.find({}, {"_id": 0}))
+            # Convert MongoDB data to expected format
+            formatted_players = []
+            for player in players:
+                formatted_players.append({
+                    "id": player.get("user_id"),
+                    "uname": player.get("username"),
+                    "f_name": player.get("family_name"),
+                    "rank_name": player.get("rank_name"),
+                    "position": player.get("position", 0),
+                    "status": player.get("status", 1)
+                })
+            return formatted_players
+        except Exception as e:
+            print(f"[ERROR] Getting all players: {e}")
+            return []
+
+    def get_notifications(self):
+        """Get recent intelligence notifications"""
+        try:
+            notifications = list(self.db.intelligence_notifications.find(
+                {},
+                {"_id": 0}
+            ).sort("timestamp", -1).limit(50))
+            
+            # Format notifications for frontend
+            formatted_notifications = []
+            for notif in notifications:
+                formatted_notifications.append({
+                    "type": notif.get("notification_type"),
+                    "username": notif.get("username"),
+                    "message": notif.get("message"),
+                    "timestamp": notif.get("timestamp").isoformat() if notif.get("timestamp") else None,
+                    "is_read": notif.get("is_read", False)
+                })
+            return formatted_notifications
+        except Exception as e:
+            print(f"[ERROR] Getting notifications: {e}")
+            return []
+
+    def get_player_details(self, player_id):
+        """Get detailed player information"""
+        try:
+            player = self.db.player_cache.find_one({"user_id": player_id}, {"_id": 0})
+            if not player:
+                return None
+            
+            # Return detailed player data
+            return {
+                "id": player.get("user_id"),
+                "username": player.get("username"),
+                "family_name": player.get("family_name"),
+                "rank_name": player.get("rank_name"),
+                "position": player.get("position", 0),
+                "status": player.get("status", 1),
+                "kills": player.get("kills", 0),
+                "bullets_shot": player.get("bullets_shot", {"total": 0}),
+                "wealth": player.get("wealth", 0),
+                "plating": player.get("plating", "Unknown"),
+                "last_updated": player.get("last_updated")
+            }
+        except Exception as e:
+            print(f"[ERROR] Getting player details for {player_id}: {e}")
+            return None
+
 # --- BROWSER SETUP (Optimized for headless) ---
 def setup_browser_session(driver, url, worker_name):
     """Setup browser session with Cloudflare bypass"""
