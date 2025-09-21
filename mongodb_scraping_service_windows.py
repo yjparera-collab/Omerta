@@ -197,39 +197,63 @@ class IntelligenceDataManager:
             print(f"[ERROR] Adding notification: {e}")
 
 # --- IMPROVED BROWSER SETUP (Windows - VISIBLE with ANTI-DETECTION) ---
-def create_anti_detection_browser():
-    """Create anti-detection browser for Windows"""
-    print("[BROWSER] Setting up anti-detection browser voor Windows...")
+def create_compatible_browser():
+    """Create compatible browser for Windows with fallback options"""
+    print("[BROWSER] Setting up compatible browser voor Windows...")
     
     options = uc.ChromeOptions()
     
-    # Basic stability options
+    # Basic required options (compatible with all Chrome versions)
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--disable-extensions')
     options.add_argument('--no-first-run')
     options.add_argument('--disable-default-apps')
-    options.add_argument('--disable-infobars')
     
-    # CRITICAL: Anti-detection measures (from working version)
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    
-    # User agent (working version)
+    # User agent
     options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
     # Window size
     options.add_argument('--window-size=1280,720')
     
-    # Create driver
-    driver = uc.Chrome(options=options, version_main=None)
+    # Try experimental options with fallback
+    try:
+        # Advanced anti-detection (may not work on all Chrome versions)
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        print("[BROWSER] ✅ Advanced anti-detection options applied")
+    except Exception as e:
+        print(f"[BROWSER] ⚠️ Advanced options not supported: {e}")
+        print("[BROWSER] ℹ️ Using basic compatibility mode")
     
-    # CRITICAL: Hide automation indicators (from working version)
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    
-    print("[BROWSER] ✅ Anti-detection browser ready")
-    return driver
+    try:
+        # Create driver with automatic version detection
+        driver = uc.Chrome(options=options)
+        print("[BROWSER] ✅ Chrome driver created successfully")
+        
+        # Try to hide automation indicators
+        try:
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            print("[BROWSER] ✅ Webdriver masking applied")
+        except Exception as e:
+            print(f"[BROWSER] ⚠️ Webdriver masking failed: {e}")
+        
+        return driver
+        
+    except Exception as e:
+        print(f"[BROWSER] ❌ Chrome driver creation failed: {e}")
+        print("[BROWSER] 🔧 Trying fallback options...")
+        
+        # Fallback: Ultra-simple options
+        simple_options = uc.ChromeOptions()
+        simple_options.add_argument('--no-sandbox')
+        simple_options.add_argument('--disable-dev-shm-usage')
+        simple_options.add_argument('--window-size=1280,720')
+        
+        driver = uc.Chrome(options=simple_options)
+        print("[BROWSER] ✅ Fallback browser created")
+        return driver
 
 def smart_cloudflare_handler(driver, url, worker_name, timeout=60):
     """Smart Cloudflare handler with improved detection (from working version)"""
