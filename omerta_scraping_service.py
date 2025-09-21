@@ -75,8 +75,13 @@ def create_stealth_browser():
     options.add_argument('--start-maximized')
     
     # Container compatibility
+    options.add_argument('--headless=new')  # Modern headless mode
     options.add_argument('--disable-gpu')
     options.add_argument('--remote-debugging-port=9222')
+    options.add_argument('--virtual-time-budget=5000')
+    options.add_argument('--disable-background-timer-throttling')
+    options.add_argument('--disable-backgrounding-occluded-windows')
+    options.add_argument('--disable-renderer-backgrounding')
     
     # Use system Chromium
     service = Service('/usr/bin/chromedriver')
