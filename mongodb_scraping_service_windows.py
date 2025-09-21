@@ -485,16 +485,49 @@ def smart_list_worker(driver, data_manager, priority_queue):
                             
                             # Cache basic user data
                             cached_count = 0
-                            for user in player_list:
-                                if isinstance(user, dict) and 'user_id' in user:
-                                    data_manager.cache_player_data(
-                                        user['user_id'], 
-                                        user.get('username', f"Player_{user['user_id']}"), 
-                                        user
-                                    )
-                                    cached_count += 1
+                            failed_count = 0
                             
-                            print(f"[LIST_WORKER] 💾 Cached {cached_count} players in MongoDB")
+                            # Debug: Check first player structure
+                            if len(player_list) > 0:
+                                first_player = player_list[0]
+                                print(f"[LIST_WORKER] 🔍 First player keys: {list(first_player.keys()) if isinstance(first_player, dict) else 'Not a dict'}")
+                                print(f"[LIST_WORKER] 🔍 First player sample: {str(first_player)[:200]}...")
+                            
+                            for user in player_list:
+                                if isinstance(user, dict):
+                                    # Try different ID field names
+                                    user_id = None
+                                    username = None
+                                    
+                                    # Common ID field names
+                                    for id_field in ['user_id', 'id', 'player_id', 'userId', 'playerId']:
+                                        if id_field in user:
+                                            user_id = user[id_field]
+                                            break
+                                    
+                                    # Common username field names
+                                    for name_field in ['username', 'name', 'player_name', 'userName', 'playerName']:
+                                        if name_field in user:
+                                            username = user[name_field]
+                                            break
+                                    
+                                    if user_id:
+                                        try:
+                                            data_manager.cache_player_data(
+                                                str(user_id), 
+                                                username or f"Player_{user_id}", 
+                                                user
+                                            )
+                                            cached_count += 1
+                                        except Exception as e:
+                                            print(f"[LIST_WORKER] ❌ Cache error for {user_id}: {e}")
+                                            failed_count += 1
+                                    else:
+                                        failed_count += 1
+                                        if failed_count <= 3:  # Only show first few failures
+                                            print(f"[LIST_WORKER] ⚠️ No ID found in player: {list(user.keys())}")
+                            
+                            print(f"[LIST_WORKER] 💾 Cached {cached_count} players, {failed_count} failed")
                         else:
                             print(f"[LIST_WORKER] ❌ No valid player data found")
                             
