@@ -144,3 +144,7 @@ v1/workspace/.git/objects/9d/a63f255b7f56724744aec673896ca2a68a169e
 # Environment files
 *.env
 *.env.*
+-e 
+# Environment files
+*.env
+*.env.*
