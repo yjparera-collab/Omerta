@@ -413,14 +413,23 @@ app = Flask(__name__)
 data_manager = IntelligenceDataManager()
 priority_queue = PriorityQueue()
 
-@app.route('/api/scraping/status')
-def get_status():
-    """Get scraping service status"""
+@app.route('/api/scraping/debug-info')
+def get_debug_info():
+    """Debug endpoint to understand what's happening"""
     try:
         return jsonify({
             "status": "online",
+            "mode": "windows_visible_browser",
             "cached_players": data_manager.get_cached_players_count(),
             "detective_targets": len(data_manager.detective_targets),
+            "debug_info": {
+                "cloudflare_issue": "If you see 403/Cloudflare errors, the visible Chrome browser needs manual interaction",
+                "solution": "Keep Chrome window open and solve any CAPTCHAs that appear",
+                "api_endpoints": [
+                    "https://barafranca.com/index.php?module=API&action=users",
+                    "https://barafranca.com/index.php?module=API&action=user&name=USERNAME"
+                ]
+            },
             "timestamp": datetime.utcnow().isoformat()
         })
     except Exception as e:
