@@ -342,7 +342,8 @@ def smart_list_worker(driver, data_manager, priority_queue):
             time.sleep(2)
 
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            user_list = json.loads(soup.find('body').get_text()).get('users', [])
+            response_data = json.loads(soup.find('body').get_text())
+            user_list = response_data.get('users', [])
 
             # Check for actual changes
             current_hash = hashlib.md5(json.dumps(user_list, sort_keys=True).encode()).hexdigest()
@@ -353,13 +354,27 @@ def smart_list_worker(driver, data_manager, priority_queue):
                     data_manager.full_user_list = user_list
                     data_manager.last_list_update = datetime.now()
 
-                # Add target players to priority queue
+                # Add target players to priority queue (fixed queue handling)
                 priority_players = data_manager.get_priority_players()
+                
+                # Clear existing queue items first to prevent buildup
+                while not priority_queue.empty():
+                    try:
+                        priority_queue.get_nowait()
+                        priority_queue.task_done()
+                    except:
+                        break
+                
+                # Add new priority players
                 for priority, player in priority_players:
-                    priority_queue.put((priority, player))
+                    try:
+                        priority_queue.put((priority, player), timeout=1)
+                    except:
+                        print(f"[ANALYST] Queue full, skipping player {player.get('uname', 'Unknown')}")
+                        break
 
                 last_hash = current_hash
-                print(f"[ANALYST] {len(priority_players)} players added to processing queue")
+                print(f"[ANALYST] {len(priority_players)} players queued for processing")
                 
                 # Notify FastAPI about list update
                 try:
@@ -369,7 +384,7 @@ def smart_list_worker(driver, data_manager, priority_queue):
                 except:
                     pass  # FastAPI might not be running yet
             else:
-                print(f"[ANALYST] No changes detected, skipping update")
+                print(f"[ANALYST] No changes detected, maintaining current queue")
 
         except Exception as e:
             print(f"[ERROR in Smart Analyst]: {e}")
