@@ -569,12 +569,27 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                             username = user[name_field]
                                             break
                                     
+                                    if user_id is None:
+                                        # Try to backfill from common fields
+                                        user_id = user.get('id') or user.get('player_id')
+
                                     if user_id:
                                         try:
+                                            # Normalize to unified structure used by UI: id/uname/rank/plating/position
+                                            normalized = {
+                                                "id": str(user_id),
+                                                "user_id": str(user_id),
+                                                "uname": user.get('uname') or user.get('username') or user.get('name'),
+                                                "rank_name": user.get('rank_name') or user.get('rank'),
+                                                "plating": user.get('plating'),
+                                                "position": user.get('position'),
+                                                "status": user.get('status'),
+                                                "f_name": user.get('f_name') or (user.get('family', {}) or {}).get('name'),
+                                            }
                                             data_manager.cache_player_data(
-                                                str(user_id), 
-                                                username or f"Player_{user_id}", 
-                                                user
+                                                str(user_id),
+                                                normalized.get('uname') or f"Player_{user_id}",
+                                                normalized
                                             )
                                             cached_count += 1
                                         except Exception as e:
@@ -583,7 +598,7 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                     else:
                                         failed_count += 1
                                         if failed_count <= 3:  # Only show first few failures
-                                            print(f"[LIST_WORKER] ⚠️ No ID found in player: {list(user.keys())}")
+                                            print(f"[LIST_WORKER] ⚠️ No ID found in player keys: {list(user.keys())}")
                             
                             print(f"[LIST_WORKER] 💾 Cached {cached_count} players, {failed_count} failed")
                         else:
