@@ -189,13 +189,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Tracked vs non-tracked: Kills/Shots show 0 only when data present; otherwise N/A"
+    - "Live verification for Kazuo: end-to-end (players → player/{id} → tracked-players → UI)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Please verify: (1) Non-tracked players without details show Kills/Shots/Wealth as N/A; (2) Tracked players (or players with fetched details) show numeric values including 0; (3) Plating continues to display from general API when details missing; (4) No regressions in sorting/filters."
+      message: "Run live checks for 'Kazuo': 1) GET /api/players to find id and base plating/position, 2) GET /api/players/{id} to verify detail (kills, bullets_shot.total, wealth), 3) GET /api/intelligence/tracked-players to verify tracked record values (no fake defaults), 4) Open UI, search 'Kazuo' and ensure Kills/Shots/Wealth reflect detail (0 allowed), plating shows from list or detail, and WebSocket refresh reflects new data."
     - agent: "testing"
       message: "❌ CRITICAL FAILURE: N/A display logic completely broken. All players show numeric values instead of N/A for non-tracked players without details. The computeRowStats function is not working as intended - players are getting data from general players list instead of showing N/A when both tracked and details data are missing. API calls to individual player details are failing but frontend still displays numeric data. Need to fix the logic in computeRowStats to properly check if player is tracked AND has details before showing numeric values, otherwise show N/A."
