@@ -181,13 +181,19 @@ const PlayersPage = () => {
   };
 
   const formatWealth = (wealth) => {
-    if (!wealth) return 'N/A';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      notation: 'compact',
-      maximumFractionDigits: 1
-    }).format(wealth);
+    if (wealth === undefined || wealth === null) return 'N/A';
+    
+    const wealthLevels = {
+      0: "Straydog",
+      1: "Poor",
+      2: "Nouveau Riche", 
+      3: "Rich",
+      4: "Very Rich",
+      5: "Too Rich to be True",
+      6: "Richer than God"
+    };
+    
+    return wealthLevels[wealth] || `Level ${wealth}`;
   };
 
   const getPlatingLevel = (plating) => {
