@@ -147,11 +147,11 @@ frontend:
 
   - task: "Rank Column Sorting (Position header)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/src/components/PlayersPage.js"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: false
           agent: "user"
@@ -162,6 +162,9 @@ frontend:
         - working: "NA"
           agent: "main"
           comment: "Updated default state to unsorted and ensured first click on Rank sets ASC. Comparator unchanged for ASC/DESC but guarded against null sortField. Ready for re-test."
+        - working: true
+          agent: "testing"
+          comment: "✅ COMPREHENSIVE RANK SORTING TEST PASSED: Initial state correctly shows unsorted (⚪). First click shows ASC (🔼) with perfect ordering #1, #2, #3, #4, #5, #6, then unranked (—) at bottom. Second click shows DESC (🔽) with unranked (—) first, then #6 down to #1. Alphabetical tiebreaker working correctly for equal positions (tested with unranked players: DeltaPlayer, EpsilonPlayer, KappaPlayer, ThetaPlayer in A-Z order). All requirements met perfectly."
 
 metadata:
   created_by: "main_agent"
