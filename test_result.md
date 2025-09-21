@@ -147,11 +147,11 @@ frontend:
 
   - task: "Rank Column Sorting (Position header)"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/src/components/PlayersPage.js"
-    stuck_count: 1
+    stuck_count: 2
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: false
           agent: "user"
@@ -159,6 +159,9 @@ frontend:
         - working: "NA"
           agent: "main"
           comment: "Adjusted position sorting: asc puts unranked last and ranks 1..N first; desc puts unranked (0) first, then ranks N..1. Added alphabetical tiebreaker by username for equal positions."
+        - working: false
+          agent: "testing"
+          comment: "CRITICAL SORTING ISSUES FOUND: ❌ Ascending sort completely inverted - shows unranked (—) first, then #6,#5,#4,#3,#2,#1 (should be #1,#2,#3,#4,#5,#6 then —). ❌ Descending sort also inverted - shows #1,#2,#3,#4,#5,#6 then unranked (should be — first, then #6,#5,#4,#3,#2,#1). ❌ Sort direction arrows inverted - shows 🔽 when should show 🔼 and vice versa. ✅ Alphabetical tiebreaker working correctly for equal positions. The sorting logic is completely backwards from user requirements."
 
 metadata:
   created_by: "main_agent"
