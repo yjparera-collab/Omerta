@@ -83,6 +83,7 @@ export const IntelligenceProvider = ({ children }) => {
       case 'player_list_updated':
         setLastUpdate(new Date().toISOString());
         fetchPlayers(); // Refresh player list
+        fetchTrackedPlayers(); // Also refresh tracked stats for realtime kills/shots/wealth
         break;
       
       case 'intelligence_update':
