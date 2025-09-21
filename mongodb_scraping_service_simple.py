@@ -321,22 +321,49 @@ def simple_list_worker(driver, data_manager):
                     if soup.text.strip().startswith('[') or soup.text.strip().startswith('{'):
                         users_data = json.loads(soup.text.strip())
                         
+                        # Handle both list and dict formats
                         if isinstance(users_data, list):
-                            print(f"[LIST_WORKER] ✅ Got {len(users_data)} players")
+                            player_list = users_data
+                            print(f"[LIST_WORKER] ✅ Got list: {len(player_list)} players")
+                        elif isinstance(users_data, dict):
+                            print(f"[LIST_WORKER] 📊 Got dict, keys: {list(users_data.keys())}")
                             
-                            # Cache data
-                            for user in users_data:
+                            # Try to find players in dict
+                            if 'users' in users_data:
+                                player_list = users_data['users']
+                            elif 'players' in users_data:
+                                player_list = users_data['players']
+                            elif 'data' in users_data:
+                                player_list = users_data['data']
+                            else:
+                                # Extract all player-like objects
+                                player_list = []
+                                for key, value in users_data.items():
+                                    if isinstance(value, dict) and 'user_id' in value:
+                                        player_list.append(value)
+                                    elif isinstance(value, list):
+                                        player_list.extend(value)
+                            
+                            print(f"[LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 0} players")
+                        else:
+                            print(f"[LIST_WORKER] ⚠️ Unexpected format: {type(users_data)}")
+                            player_list = []
+                        
+                        # Cache data
+                        if isinstance(player_list, list):
+                            cached = 0
+                            for user in player_list:
                                 if isinstance(user, dict) and 'user_id' in user:
                                     data_manager.cache_player_data(
                                         user['user_id'], 
-                                        user.get('username', ''), 
+                                        user.get('username', f"Player_{user['user_id']}"), 
                                         user
                                     )
-                        else:
-                            print(f"[LIST_WORKER] ⚠️ Unexpected data type")
+                                    cached += 1
+                            print(f"[LIST_WORKER] 💾 Cached {cached} players")
                             
                 except json.JSONDecodeError as e:
-                    print(f"[LIST_WORKER] ❌ JSON parse error")
+                    print(f"[LIST_WORKER] ❌ JSON parse error: {e}")
             else:
                 print(f"[LIST_WORKER] ❌ Failed to access user list")
                 
