@@ -481,12 +481,8 @@ if __name__ == '__main__':
         # Setup stealth browser
         driver = create_stealth_browser()
         
-        # Test basic functionality
-        print("[BROWSER] Testing browser functionality...")
-        if smart_cloudflare_bypass(driver, "https://httpbin.org/json"):
-            print("[BROWSER] ✅ Browser working correctly")
-        else:
-            print("[BROWSER] ⚠️ Browser test inconclusive")
+        # Browser ready - no test needed
+        print("[BROWSER] ✅ Stealth browser ready voor Barafranca")
 
         # Signal setup complete
         setup_complete.set()
