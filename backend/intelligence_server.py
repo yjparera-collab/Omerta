@@ -300,19 +300,39 @@ app.include_router(api_router)
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
+        # Send initial connection confirmation
+        await websocket.send_json({
+            "type": "connection_established", 
+            "timestamp": datetime.now().isoformat(),
+            "message": "WebSocket connected successfully"
+        })
+        
         while True:
-            # Keep connection alive and handle incoming messages
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            
-            # Handle different message types from frontend
-            if message.get("type") == "ping":
-                await websocket.send_json({"type": "pong", "timestamp": datetime.now().isoformat()})
-            elif message.get("type") == "request_status":
-                status = await call_scraping_service("/api/scraping/status")
-                await websocket.send_json({"type": "status_update", "data": status})
+            try:
+                # Add timeout to prevent hanging
+                message = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+                
+                if message.get("type") == "ping":
+                    await websocket.send_json({"type": "pong", "timestamp": datetime.now().isoformat()})
+                elif message.get("type") == "request_status":
+                    try:
+                        status = await call_scraping_service("/api/scraping/status")
+                        await websocket.send_json({"type": "status_update", "data": status})
+                    except Exception as e:
+                        await websocket.send_json({"type": "error", "message": f"Failed to get status: {e}"})
+                        
+            except asyncio.TimeoutError:
+                # Send keepalive ping
+                await websocket.send_json({"type": "keepalive", "timestamp": datetime.now().isoformat()})
+                continue
+            except Exception as e:
+                print(f"WebSocket message error: {e}")
+                break
                 
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket connection error: {e}")
         manager.disconnect(websocket)
 
 # --- BACKGROUND TASKS ---
