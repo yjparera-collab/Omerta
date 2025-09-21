@@ -4,11 +4,18 @@ color 0A
 
 echo ===============================================
 echo    OMERTA INTELLIGENCE DASHBOARD
-echo    Windows Startup Script v2.0
+echo    Windows CMD Startup Script v2.0
 echo ===============================================
 echo.
 
-echo [1/5] Checking MongoDB...
+echo [1/5] Setting up environment variables...
+set MONGO_URL=mongodb://localhost:27017
+set DB_NAME=omerta_intelligence
+set CORS_ORIGINS=http://localhost:3000
+echo ✓ Environment variables set
+echo.
+
+echo [2/5] Checking MongoDB...
 timeout 2 >nul
 net start MongoDB >nul 2>&1
 if %errorlevel% equ 0 (
@@ -18,25 +25,25 @@ if %errorlevel% equ 0 (
 )
 echo.
 
-echo [2/5] Starting Backend API Server...
+echo [3/5] Starting Backend API Server...
 timeout 2 >nul
-start "Omerta Backend" cmd /k "title Omerta Backend API && cd /d %~dp0backend && python intelligence_server.py"
+start "Omerta Backend" cmd /k "title Omerta Backend API && cd /d %~dp0backend && set MONGO_URL=mongodb://localhost:27017 && set DB_NAME=omerta_intelligence && set CORS_ORIGINS=http://localhost:3000 && python intelligence_server.py"
 echo ✓ Backend starting on port 8001
 echo.
 
-echo [3/5] Starting Scraping Service...
+echo [4/5] Starting Scraping Service...
 timeout 3 >nul
-start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && python mongodb_scraping_service.py"
+start "Omerta Scraper" cmd /k "title Omerta Scraping Service && cd /d %~dp0 && set MONGO_URL=mongodb://localhost:27017 && set DB_NAME=omerta_intelligence && python mongodb_scraping_service.py"
 echo ✓ Scraping service starting on port 5001
 echo.
 
-echo [4/5] Starting Frontend...
+echo [5/5] Starting Frontend...
 timeout 5 >nul
 start "Omerta Frontend" cmd /k "title Omerta Frontend && cd /d %~dp0frontend && yarn start"
 echo ✓ Frontend starting on port 3000
 echo.
 
-echo [5/5] Services are starting up...
+echo [6/6] Services are starting up...
 timeout 5 >nul
 
 echo ===============================================
