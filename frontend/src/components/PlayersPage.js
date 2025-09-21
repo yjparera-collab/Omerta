@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useIntelligence } from '../hooks/useIntelligence';
 
 const PlayersPage = () => {
-  const { players, notifications, getPlayerDetails, addDetectiveTargets } = useIntelligence();
+  const { players, notifications, getPlayerDetails, addDetectiveTargets, trackedPlayers } = useIntelligence();
   
   // Filters
   const [nameFilter, setNameFilter] = useState('');
