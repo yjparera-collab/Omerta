@@ -277,7 +277,7 @@ class IntelligenceDataManager:
         seen_ids = set()
         unique_targets = []
         for player in all_targets:
-            if player['id'] not in seen_ids:
+            if player.get('id') and player['id'] not in seen_ids:
                 unique_targets.append(player)
                 seen_ids.add(player['id'])
 
@@ -292,7 +292,7 @@ class IntelligenceDataManager:
                 priority = 0 if player['id'] in self.detective_targets else 1
                 priority_players.append((priority, player))
 
-        # Sort by priority and return limited number
+        # Sort by priority (fix: only sort by the numeric priority, not the player dict)
         priority_players.sort(key=lambda x: x[0])
         return priority_players[:limit]
 
