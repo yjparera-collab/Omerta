@@ -270,6 +270,43 @@ def add_detective_targets():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/scraping/players')
+def get_players():
+    """Get all players from cache"""
+    try:
+        players = data_manager.get_all_players()
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "last_updated": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scraping/notifications')
+def get_notifications():
+    """Get intelligence notifications"""
+    try:
+        notifications = data_manager.get_notifications()
+        return jsonify({
+            "notifications": notifications,
+            "count": len(notifications),
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scraping/player/<player_id>')
+def get_player_details(player_id):
+    """Get detailed player information"""
+    try:
+        player_data = data_manager.get_player_details(player_id)
+        if not player_data:
+            return jsonify({"error": "Player not found"}), 404
+        return jsonify(player_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- Background Workers ---
 def smart_list_worker(driver, data_manager, priority_queue):
     """Worker that fetches the main user list periodically"""
