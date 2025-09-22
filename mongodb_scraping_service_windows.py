@@ -718,12 +718,19 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                                         # MERGE: Keep detailed data, update list data
                                                         merged_data = existing_data.copy()  # Start with detailed data
                                                         
-                                                        # Update only list-compatible fields
-                                                        for key, value in list_data.items():
-                                                            if value is not None:  # Only update non-null values
-                                                                merged_data[key] = value
+                                                        # Update only list-compatible fields (preserve username!)
+                                                        list_fields = ['rank_name', 'plating', 'position', 'status', 'f_name', 'f_id', 'f_isCapo', 'version']
+                                                        for field in list_fields:
+                                                            if field in list_data and list_data[field] is not None:
+                                                                merged_data[field] = list_data[field]
                                                         
-                                                        print(f"[LIST_WORKER] 🔄 Merging list data with detailed data for {username}")
+                                                        # CRITICAL: Always preserve username and user_id
+                                                        merged_data['username'] = username
+                                                        merged_data['uname'] = username
+                                                        if user_id:
+                                                            merged_data['user_id'] = str(user_id)
+                                                            merged_data['id'] = str(user_id)
+                                                        
                                                         final_data = merged_data
                                                     else:
                                                         # No detailed data, use list data
