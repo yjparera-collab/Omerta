@@ -599,12 +599,39 @@ const PlayersPage = () => {
                           </span>
                         </td>
                         <td className="p-3">
-                          <button
-                            onClick={() => getPlayerDetails(player.id)}
-                            className="px-3 py-1 bg-slate-600/50 hover:bg-slate-600 text-slate-300 hover:text-white rounded transition-colors text-xs font-medium"
-                          >
-                            📊 Analyze
-                          </button>
+                          <div className="flex flex-col gap-1">
+                            {(() => {
+                              const isTracked = trackedPlayers.some(tp => tp.player_id === player.id || tp.username === player.uname);
+                              return (
+                                <>
+                                  {isTracked && (
+                                    <button
+                                      onClick={() => removeDetectiveTargets([player.uname])}
+                                      className="text-red-500 hover:text-red-700 text-xs font-medium"
+                                      title="Untrack player"
+                                    >
+                                      ✕ Untrack
+                                    </button>
+                                  )}
+                                  {!isTracked && (
+                                    <button
+                                      onClick={() => addDetectiveTargets([player.uname])}
+                                      className="text-blue-500 hover:text-blue-700 text-xs font-medium"
+                                      title="Track player"
+                                    >
+                                      + Track
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => getPlayerDetails(player.id)}
+                                    className="px-3 py-1 bg-slate-600/50 hover:bg-slate-600 text-slate-300 hover:text-white rounded transition-colors text-xs font-medium"
+                                  >
+                                    📊 Analyze
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </div>
                         </td>
                       </tr>
                     );
