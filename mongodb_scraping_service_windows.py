@@ -1275,23 +1275,22 @@ if __name__ == '__main__':
         # Signal setup complete
         setup_complete.set()
 
-        # Start worker threads
-        list_thread = threading.Thread(target=smart_list_worker, args=(driver, data_manager, priority_queue))
+        # Start dynamic list worker thread  
+        list_thread = threading.Thread(target=dynamic_list_worker, args=(data_manager,))
         list_thread.daemon = True
         list_thread.start()
 
-        batch_thread = threading.Thread(target=parallel_detail_worker, args=(data_manager,))
-        batch_thread.daemon = True
-        batch_thread.start()
+        # Start parallel detail worker thread
+        detail_thread = threading.Thread(target=parallel_detail_worker, args=(data_manager,))
+        detail_thread.daemon = True
+        detail_thread.start()
 
-        print(f"\n" + "="*60)
-        print(f"🎯 MONGODB OMERTA INTELLIGENCE SCRAPING ACTIVE (WINDOWS)")
-        print(f"🛡️  ANTI-DETECTION BROWSER: Advanced Cloudflare bypass")
-        print(f"🪟 Chrome browser venster is ZICHTBAAR voor handmatige hulp")
-        print(f"[LIVE] Smart List Worker: Every {MAIN_LIST_INTERVAL} seconds")
-        print(f"[BATCH] Detail Worker: Detective targets every 90 seconds")
-        print(f"[CACHE] Using MongoDB for persistent data - USERNAME FIRST")
-        print(f"[TARGET] Ready for FastAPI integration on port 8001")
+        print(f"\n✅ All services active!")
+        print(f"📊 API Status: http://127.0.0.1:5001/api/scraping/status")
+        print(f"⚙️ Settings: http://127.0.0.1:5001/api/scraping/settings") 
+        print(f"🎯 Detective Targets: {len(data_manager.detective_targets)}")
+        print(f"💾 Cached Players: {data_manager.get_cached_players_count()}")
+        print(f"🔧 Settings are configurable via UI - restart required for changes")
         print(f"\n💡 TIP: Laat het Chrome venster open - automatische bypass actief!")
         print(f"🔧 HELP: Los CAPTCHA's op als die verschijnen")
         print(f"🛑 STOP: Ctrl+C om te stoppen")
