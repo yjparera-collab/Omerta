@@ -234,7 +234,7 @@ class IntelligenceDataManager:
             return []
 
     def cache_player_data(self, user_id, username, data):
-        """Cache player data in MongoDB - USERNAME FIRST approach"""
+        """Cache player data using username as primary key with SMART CHANGE DETECTION"""
         try:
             # Prioritize username - it's the primary key now
             username_str = str(username) if username else None
@@ -250,11 +250,93 @@ class IntelligenceDataManager:
             if not user_id_str:
                 user_id_str = self.get_user_id_by_username(username_str)
             
+            # SMART CHANGE DETECTION: Check if data actually changed
+            existing_cache = self.db.player_cache.find_one({"username": username_str})
+            
+            if existing_cache:
+                try:
+                    existing_data = json.loads(existing_cache.get('data', '{}'))
+                    
+                    # Compare meaningful fields to detect real changes
+                    def normalize_for_comparison(d):
+                        """Extract comparable fields from data"""
+                        if not isinstance(d, dict):
+                            return {}
+                        return {
+                            'rank_name': d.get('rank_name'),
+                            'plating': d.get('plating'), 
+                            'position': d.get('position'),
+                            'status': d.get('status'),
+                            'wealth': d.get('wealth'),
+                            'kills': d.get('kills'),
+                            'bullets_shot': d.get('bullets_shot'),
+                            'honorpoints': d.get('honorpoints'),
+                            'f_name': d.get('f_name')
+                        }
+                    
+                    old_comparable = normalize_for_comparison(existing_data)
+                    new_comparable = normalize_for_comparison(data)
+                    
+                    # If no meaningful changes, skip update
+                    if old_comparable == new_comparable:
+                        return False  # No changes needed
+                    
+                    # SMART MERGE: Combine existing detailed data with new updates
+                    merged_data = existing_data.copy()
+                    
+                    # Determine if new data is detailed (from individual API) or basic (from list)
+                    new_is_detailed = any(field in data for field in ['wealth', 'kills', 'bullets_shot', 'honorpoints', 'avatar', 'profile'])
+                    existing_is_detailed = any(field in existing_data for field in ['wealth', 'kills', 'bullets_shot', 'honorpoints', 'avatar', 'profile'])
+                    
+                    if new_is_detailed:
+                        # New data is detailed - update everything
+                        merged_data = data.copy()
+                        # Preserve username consistency
+                        merged_data['username'] = username_str
+                        merged_data['uname'] = username_str
+                        if user_id_str:
+                            merged_data['user_id'] = user_id_str
+                            merged_data['id'] = user_id_str
+                    elif existing_is_detailed:
+                        # Existing data is detailed, new is basic - only update basic fields
+                        basic_fields = ['rank_name', 'plating', 'position', 'status', 'f_name', 'f_id', 'f_isCapo', 'version']
+                        for field in basic_fields:
+                            if field in data and data[field] is not None:
+                                merged_data[field] = data[field]
+                        # Always preserve username/id consistency  
+                        merged_data['username'] = username_str
+                        merged_data['uname'] = username_str
+                        if user_id_str:
+                            merged_data['user_id'] = user_id_str
+                            merged_data['id'] = user_id_str
+                    else:
+                        # Both are basic data - normal update
+                        merged_data = data.copy()
+                        merged_data['username'] = username_str
+                        merged_data['uname'] = username_str
+                        if user_id_str:
+                            merged_data['user_id'] = user_id_str
+                            merged_data['id'] = user_id_str
+                    
+                    final_data = merged_data
+                    
+                except Exception as e:
+                    print(f"[CACHE] ❌ Smart merge error for {username_str}: {e}")
+                    final_data = data
+            else:
+                # No existing data, use new data
+                final_data = data.copy()
+                final_data['username'] = username_str
+                final_data['uname'] = username_str
+                if user_id_str:
+                    final_data['user_id'] = user_id_str
+                    final_data['id'] = user_id_str
+            
             # Create document with username as primary key
             doc = {
                 "username": username_str,  # PRIMARY KEY
                 "user_id": user_id_str,    # Secondary for legacy compatibility
-                "data": json.dumps(data, default=str),
+                "data": json.dumps(final_data, default=str),
                 "last_updated": datetime.utcnow(),
                 "priority": 1
             }
@@ -268,9 +350,10 @@ class IntelligenceDataManager:
             
             # Verify the operation
             if result.upserted_id or result.modified_count > 0:
-                # Only log for detective targets, not all players
-                if username_str in data_manager.detective_targets:
-                    print(f"[CACHE] ✅ Detective target {username_str} updated")
+                # Only log for detective targets or meaningful changes
+                if username_str in self.detective_targets:
+                    data_type = "detailed" if any(field in final_data for field in ['wealth', 'kills']) else "basic"
+                    print(f"[CACHE] ✅ {data_type.title()} update for {username_str}")
                 return True
             else:
                 return False
