@@ -407,6 +407,8 @@ class IntelligenceDataManager:
                 "parallel_tabs": 5,
                 "cloudflare_timeout": 60
             }
+
+    def get_cached_players_count(self):
         """Get count of cached players"""
         try:
             return self.db.player_cache.count_documents({})
