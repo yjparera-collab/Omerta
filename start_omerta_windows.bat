@@ -42,6 +42,19 @@ echo.
 
 echo [5/5] Starting Frontend...
 timeout 5 >nul
+echo Checking if npm dependencies are installed...
+cd /d %~dp0frontend
+if not exist node_modules (
+    echo ❌ Frontend dependencies not found!
+    echo Installing dependencies first...
+    npm install
+    if %errorlevel% neq 0 (
+        echo ❌ Failed to install frontend dependencies
+        echo Please run: install_windows_dependencies.bat
+        pause
+        exit /b 1
+    )
+)
 start "Omerta Frontend" cmd /k "title Omerta Frontend && cd /d %~dp0frontend && npm start"
 echo ✓ Frontend starting on port 3000
 echo.
