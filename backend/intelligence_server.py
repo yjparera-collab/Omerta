@@ -192,38 +192,68 @@ async def get_notifications():
 
 @api_router.get("/intelligence/tracked-players")
 async def get_tracked_players():
+    """Get tracked players directly from MongoDB"""
     try:
-        result = await call_scraping_service("/api/scraping/detective/targets")
-        if "error" not in result:
-            return {"tracked_players": result.get("tracked_players", [])}
+        # Direct MongoDB access
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        client = MongoClient(mongo_url)
+        db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
         
-        # Fallback to MongoDB - use detective_targets collection
-        tracked = await db.detective_targets.find({"is_active": True}).to_list(length=100)
-        tracked_players = []
-        for player in tracked:
-            # Get cached player data for this username
-            cached_player = await db.player_cache.find_one({"username": player.get("username")})
-            player_data = {}
-            if cached_player:
-                import json
-                try:
-                    player_data = json.loads(cached_player.get('data', '{}'))
-                except:
-                    player_data = {}
+        # Get detective targets and their cached data
+        targets = list(db.detective_targets.find({"is_active": True}))
+        result = []
+        
+        for target in targets:
+            username = target['username']
+            cached_data = db.player_cache.find_one({"username": username})
             
-            tracked_players.append({
-                "player_id": player.get("player_id"),
-                "username": player.get("username"),
-                "priority": player.get("priority", 1),
-                "kills": player_data.get("kills", 0),
-                "shots": player_data.get("bullets_shot", {}).get("total", 0) if isinstance(player_data.get("bullets_shot"), dict) else player_data.get("bullets_shot", 0),
-                "wealth": player_data.get("wealth", 0),
-                "plating": player_data.get("plating", "Unknown"),
-            })
-        return {"tracked_players": tracked_players}
+            player_info = {
+                "username": username,
+                "player_id": target.get('player_id', ''),
+                "added_timestamp": target.get('added_timestamp', ''),
+                "last_updated": None
+            }
+            
+            if cached_data:
+                try:
+                    raw = json.loads(cached_data.get('data', '{}'))
+                    inner = raw.get('data', raw) if isinstance(raw, dict) and 'data' in raw else raw
+                    
+                    if isinstance(inner, dict):
+                        # Extract combat stats
+                        if inner.get('kills') is not None:
+                            player_info["kills"] = inner.get('kills')
+                        
+                        bullets_shot = inner.get('bullets_shot')
+                        if bullets_shot is not None:
+                            if isinstance(bullets_shot, dict):
+                                shots = bullets_shot.get('total')
+                            else:
+                                shots = bullets_shot
+                            if shots is not None:
+                                player_info["shots"] = shots
+                        
+                        if inner.get('wealth') is not None:
+                            player_info["wealth"] = inner.get('wealth')
+                        if inner.get('plating') is not None:
+                            player_info["plating"] = inner.get('plating')
+                            
+                    player_info["last_updated"] = cached_data.get('last_updated')
+                    
+                except Exception as e:
+                    print(f"[BACKEND] Parse error for {username}: {e}")
+            
+            result.append(player_info)
+        
+        return {
+            "tracked_players": result,
+            "count": len(result),
+            "source": "mongodb_direct",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
     except Exception as e:
-        print(f"Error getting tracked players: {e}")
-        return {"tracked_players": []}
+        return {"error": f"MongoDB access failed: {str(e)}", "tracked_players": [], "count": 0}
 
 @api_router.post("/intelligence/detective/add")
 async def add_detective_targets(targets: DetectiveTargets):
