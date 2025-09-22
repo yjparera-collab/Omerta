@@ -329,6 +329,18 @@ async def get_system_status():
         "api_status": "active"
     }
 
+@api_router.get("/scraping/settings")
+async def get_scraping_settings():
+    """Proxy to scraping service settings"""
+    result = await call_scraping_service("/api/scraping/settings")
+    return result
+
+@api_router.post("/scraping/settings")
+async def update_scraping_settings(settings_data: dict):
+    """Proxy to scraping service settings update"""
+    result = await call_scraping_service("/api/scraping/settings", "POST", settings_data)
+    return result
+
 @api_router.post("/preferences")
 async def save_user_preferences(preferences: UserPreferences):
     await db.user_preferences.update_one(
