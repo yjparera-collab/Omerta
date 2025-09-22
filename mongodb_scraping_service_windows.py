@@ -849,6 +849,11 @@ if __name__ == '__main__':
         flask_thread.start()
         print("[WEB] Flask scraping API started on http://127.0.0.1:5001")
 
+        # Disable Flask HTTP access logging
+        import logging
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+
         # Setup VISIBLE compatible browser for Windows
         print("\n--- SETTING UP COMPATIBLE BROWSER FOR CLOUDFLARE ---")
         driver = create_compatible_browser()
