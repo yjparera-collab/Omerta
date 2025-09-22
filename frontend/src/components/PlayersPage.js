@@ -106,6 +106,19 @@ const PlayersPage = () => {
       if (rankFilter && player.rank_name !== rankFilter) {
         return false;
       }
+      
+      // Position range filter
+      const positionFrom = positionFromFilter ? parseInt(positionFromFilter) : null;
+      const positionTo = positionToFilter ? parseInt(positionToFilter) : null;
+      
+      if (positionFrom !== null || positionTo !== null) {
+        const position = player.position;
+        if (position === null || position === undefined) return false;
+        
+        if (positionFrom !== null && position < positionFrom) return false;
+        if (positionTo !== null && position > positionTo) return false;
+      }
+      
       if (!showDead && player.status === 3) {
         return false;
       }
