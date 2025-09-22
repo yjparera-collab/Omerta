@@ -385,7 +385,28 @@ class IntelligenceDataManager:
             print(f"[ERROR] Caching player data for {username} (ID: {user_id}): {e}")
             return False
 
-    def get_cached_players_count(self):
+    def get_settings(self):
+        """Get current scraping settings from database"""
+        try:
+            settings_doc = self.db.scraping_settings.find_one({"type": "intervals"})
+            if settings_doc:
+                return settings_doc.get('settings', {})
+            else:
+                # Return defaults
+                return {
+                    "list_worker_interval": 3600,  # 1 hour
+                    "detail_worker_interval": 900,  # 15 minutes  
+                    "parallel_tabs": 5,
+                    "cloudflare_timeout": 60
+                }
+        except Exception as e:
+            print(f"[SETTINGS] Error loading settings: {e}")
+            return {
+                "list_worker_interval": 3600,
+                "detail_worker_interval": 900,
+                "parallel_tabs": 5,
+                "cloudflare_timeout": 60
+            }
         """Get count of cached players"""
         try:
             return self.db.player_cache.count_documents({})
