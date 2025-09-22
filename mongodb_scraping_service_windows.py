@@ -819,6 +819,164 @@ def get_player_detail_by_username(username):
         return jsonify({"error": str(e)}), 500
 
 # --- Background Workers ---
+def dynamic_list_worker(data_manager):
+    """Dynamic list worker that creates its own browser instance"""
+    driver = None
+    
+    try:
+        # Create browser instance for this worker
+        driver = create_compatible_browser()
+        if not driver:
+            print("[DYNAMIC_LIST_WORKER] ❌ Failed to create browser")
+            return
+            
+        while True:
+            try:
+                settings = data_manager.get_settings()
+                list_interval = settings.get('list_worker_interval', 3600)
+                
+                print(f"\n[DYNAMIC_LIST_WORKER] Fetching user list...")
+                
+                # Use improved Cloudflare handler
+                if smart_cloudflare_handler(driver, USER_LIST_URL, worker_name="DYNAMIC_LIST_WORKER"):
+                    time.sleep(2)  # Extra wait after Cloudflare
+                    page_source = driver.page_source
+                    soup = BeautifulSoup(page_source, 'html.parser')
+                    
+                    # Try to parse JSON from the page
+                    try:
+                        # Look for JSON data in the page
+                        if soup.text.strip().startswith('[') or soup.text.strip().startswith('{'):
+                            users_data = json.loads(soup.text.strip())
+                            
+                            # Handle both list and dict formats
+                            if isinstance(users_data, list):
+                                # Direct list of players
+                                player_list = users_data
+                                print(f"[DYNAMIC_LIST_WORKER] ✅ Got list format: {len(player_list)} players")
+                            elif isinstance(users_data, dict):
+                                # Dictionary wrapper or container
+                                print(f"[DYNAMIC_LIST_WORKER] 📊 Got dict format, keys: {list(users_data.keys())}")
+
+                                # Unwrap common wrapper {cached, time, expires, data}
+                                container = users_data.get('data', users_data)
+
+                                # If the unwrapped container is a list, it's the player list
+                                if isinstance(container, list):
+                                    player_list = container
+                                elif isinstance(container, dict):
+                                    # Try common keys inside container
+                                    if 'users' in container:
+                                        player_list = container['users']
+                                    elif 'players' in container:
+                                        player_list = container['players']
+                                    else:
+                                        # The Barafranca users API gives family hierarchy, not players
+                                        # Skip this and rely on detail workers for now
+                                        print(f"[DYNAMIC_LIST_WORKER] ⚠️ Users API returns family data, not player list")
+                                        print(f"[DYNAMIC_LIST_WORKER] ℹ️ Relying on detective targets for player data")
+                                        player_list = []
+                                else:
+                                    player_list = []
+
+                                print(f"[DYNAMIC_LIST_WORKER] ✅ Extracted {len(player_list) if isinstance(player_list, list) else 0} players from wrapper")
+                            else:
+                                print(f"[DYNAMIC_LIST_WORKER] ⚠️ Unexpected data format: {type(users_data)}")
+                                player_list = []
+                            
+                            # Process the player list
+                            if isinstance(player_list, list) and len(player_list) > 0:
+                                data_manager.full_user_list = player_list
+                                print(f"[DYNAMIC_LIST_WORKER] ✅ Updated user list: {len(player_list)} players")
+                                
+                                # Cache basic user data - USERNAME FIRST approach
+                                cached_count = 0
+                                failed_count = 0
+                                
+                                for user in player_list:
+                                    if isinstance(user, dict):
+                                        # Try different ID field names
+                                        user_id = None
+                                        username = None
+                                        
+                                        # Common ID field names
+                                        for id_field in ['user_id', 'id', 'player_id', 'userId', 'playerId']:
+                                            if id_field in user:
+                                                user_id = user[id_field]
+                                                break
+                                        
+                                        # Common username field names - the 'name' field from users API is actually the username
+                                        for name_field in ['username', 'uname', 'player_name', 'userName', 'playerName', 'name']:
+                                            if name_field in user and user[name_field] is not None:
+                                                username = user[name_field]
+                                                break
+                                        
+                                        if user_id is None:
+                                            # Try to backfill from common fields
+                                            user_id = user.get('id') or user.get('player_id')
+
+                                        # USERNAME FIRST: Require username, user_id optional
+                                        if username:
+                                            try:
+                                                # Basic list data - let smart cache handle merging
+                                                list_data = {
+                                                    "id": str(user_id) if user_id else None,
+                                                    "user_id": str(user_id) if user_id else None,
+                                                    "uname": username,
+                                                    "username": username,
+                                                    "rank_name": user.get('rank_name') or user.get('rank'),
+                                                    "plating": user.get('plating'),
+                                                    "position": user.get('position'),
+                                                    "status": user.get('status'),
+                                                    "f_name": user.get('f_name') or (user.get('family', {}) or {}).get('name'),
+                                                    "f_id": user.get('f_id'),
+                                                    "f_isCapo": user.get('f_isCapo'),
+                                                    "version": user.get('version')
+                                                }
+                                                
+                                                # Let smart cache_player_data handle all merging logic
+                                                if data_manager.cache_player_data(user_id, username, list_data):
+                                                    cached_count += 1
+                                                    
+                                            except Exception as e:
+                                                print(f"[DYNAMIC_LIST_WORKER] ❌ Cache error for {username}: {e}")
+                                                failed_count += 1
+                                        else:
+                                            failed_count += 1
+                                            if failed_count <= 3:  # Only show first few failures
+                                                print(f"[DYNAMIC_LIST_WORKER] ⚠️ No username found in player keys: {list(user.keys())}")
+                                
+                                print(f"[DYNAMIC_LIST_WORKER] 💾 Cached {cached_count} players")
+                                
+                                # Notify backend of list update
+                                data_manager.notify_backend_list_updated({
+                                    "type": "dynamic_list_update",
+                                    "cached_players": cached_count,
+                                    "total_players": len(player_list)
+                                })
+                            else:
+                                print("[DYNAMIC_LIST_WORKER] ❌ No valid player data")
+                                
+                    except json.JSONDecodeError as e:
+                        print(f"[DYNAMIC_LIST_WORKER] ❌ Failed to parse JSON: {e}")
+                        print(f"[DYNAMIC_LIST_WORKER] Page content preview: {soup.text[:200]}")
+                else:
+                    print(f"[DYNAMIC_LIST_WORKER] ❌ Failed to bypass Cloudflare")
+                    
+            except Exception as e:
+                print(f"[DYNAMIC_LIST_WORKER] ❌ Error: {e}")
+            
+            print(f"[DYNAMIC_LIST_WORKER] ⏳ Next update in {list_interval} seconds")
+            time.sleep(list_interval)
+            
+    finally:
+        if driver:
+            try:
+                driver.quit()
+                print("[DYNAMIC_LIST_WORKER] Browser closed")
+            except:
+                pass
+
 def smart_list_worker(driver, data_manager, priority_queue):
     """Worker that fetches the main user list with improved Cloudflare handling"""
     while True:
