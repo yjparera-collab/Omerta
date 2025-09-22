@@ -809,11 +809,8 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                                     )
                                     print(f"[DETECTIVE] ✅ Updated {username} (wealth={inner.get('wealth', 'N/A')})")
                                     
-                                    # Notify backend for real-time updates
-                                    data_manager.notify_backend_list_updated({
-                                        "username": username, 
-                                        "user_id": str(uid) if uid else None
-                                    })
+                                    # DON'T notify backend for every single update - causes UI flicker
+                                    # Backend will get updates via regular API calls instead
                                     
                         else:
                             print(f"[DETECTIVE] ❌ Failed to access {username}")
