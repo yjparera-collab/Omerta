@@ -268,10 +268,11 @@ class IntelligenceDataManager:
             
             # Verify the operation
             if result.upserted_id or result.modified_count > 0:
-                print(f"[CACHE] ✅ Cached data for {username_str} (ID: {user_id_str})")
+                # Only log for detective targets, not all players
+                if username_str in data_manager.detective_targets:
+                    print(f"[CACHE] ✅ Detective target {username_str} updated")
                 return True
             else:
-                print(f"[CACHE] ⚠️ No changes made for {username_str}")
                 return False
                 
         except Exception as e:
