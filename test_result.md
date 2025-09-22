@@ -139,26 +139,20 @@ backend:
           comment: "✅ COMPREHENSIVE SETTINGS API TESTING PASSED: All 8 test scenarios successful. ✅ Direct Scraping Service GET/POST: Both endpoints working correctly on port 5001. ✅ Backend Proxy GET/POST: Proxy endpoints on port 8001 correctly forward requests to scraping service. ✅ MongoDB Persistence: Settings properly saved to scraping_settings collection and persist across service restarts. ✅ Settings Validation: Minimum value enforcement working (intervals ≥10s, tabs 1-10, timeout 10-300s). ✅ Default Settings: Correct defaults returned when no settings exist (list_worker_interval: 3600, detail_worker_interval: 900, parallel_tabs: 5, cloudflare_timeout: 60). ✅ Restart Message: 'Restart scraper for changes to take effect' message included in responses. Fixed missing settings endpoint in container_scraping_service.py. Both direct scraping service calls and backend proxy calls work identically as required."
 
 frontend:
-  - task: "Tracked Players Only Filter"
+  - task: "Settings Page Implementation"
     implemented: true
-    working: true
-    file: "/app/frontend/src/components/PlayersPage.js"
-    stuck_count: 1
+    working: false
+    file: "/app/frontend/src/components/SettingsPage.js"
+    stuck_count: 2
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Created SettingsPage.js component with UI for configuring list/detail worker intervals, parallel tabs, and cloudflare timeout. Added routes and navigation items."
         - working: false
-          agent: "user"
-          comment: "User reported 'Dit werkkt niet' (This does not work) - indicating the filter is not functioning properly"
-        - working: "NA"
           agent: "main"
-          comment: "Backend tracking system is now operational, need to test frontend filter functionality"
-        - working: "NA"
-          agent: "main"
-          comment: "Fixed TailwindCSS compilation errors by installing missing tailwindcss-animate plugin. Frontend now loads correctly and 'Tracked Players Only' filter checkbox is visible in Control Center panel. Ready for functional testing."
-        - working: true
-          agent: "testing"
-          comment: "COMPREHENSIVE TESTING COMPLETED: ✅ Filter visibility: PASSED - Checkbox is visible and properly labeled. ✅ Filter interaction: PASSED - Checkbox responds to clicks and changes state. ✅ Filter functionality: PASSED - When UNCHECKED shows 3 players, when CHECKED shows 2 tracked players (TestPlayer123, TestPlayer456). Statistics panel updates correctly (Total: 3, Filtered: 2/3). ✅ Data integration: PASSED - Both test players found with correct combat stats (TestPlayer123: 5 kills, 25 shots; TestPlayer456: 12 kills, 45 shots). ✅ Real-time updates working. Fixed backend API issues by adding missing scraping service endpoints."
+          comment: "SettingsPage not rendering despite correct routing. Fixed missing apiCall in useIntelligence context. Added Settings navigation item but it's not appearing. React component rendering issues preventing Settings UI from displaying."
 
   - task: "Target Configuration (Families) Page Display"
     implemented: true
