@@ -255,7 +255,31 @@ async def get_tracked_players():
     except Exception as e:
         return {"error": f"MongoDB access failed: {str(e)}", "tracked_players": [], "count": 0}
 
-@api_router.post("/intelligence/detective/add")
+@api_router.post("/intelligence/detective/remove")
+async def remove_detective_targets(targets: DetectiveTargets):
+    """Remove detective targets"""
+    try:
+        # Direct MongoDB access
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        client = MongoClient(mongo_url)
+        db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
+        
+        removed_count = 0
+        for username in targets.usernames:
+            result = db.detective_targets.update_one(
+                {"username": username},
+                {"$set": {"is_active": False}}
+            )
+            if result.modified_count > 0:
+                removed_count += 1
+        
+        return {
+            "message": f"Removed {removed_count} detective targets",
+            "removed": removed_count,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {"error": f"Failed to remove targets: {str(e)}"}
 async def add_detective_targets(targets: DetectiveTargets):
     result = await call_scraping_service("/api/scraping/detective/add", "POST", {"usernames": targets.usernames})
     await manager.broadcast({
