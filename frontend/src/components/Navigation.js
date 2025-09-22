@@ -5,6 +5,8 @@ import { useIntelligence } from '../hooks/useIntelligence';
 const Navigation = () => {
   const location = useLocation();
   const { systemStatus, isConnected, notifications } = useIntelligence();
+  
+  // Force recompile - test timestamp: 1234567890
 
   const navItems = [
     { 
