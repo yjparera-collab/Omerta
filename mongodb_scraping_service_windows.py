@@ -624,13 +624,11 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                 elif 'players' in container:
                                     player_list = container['players']
                                 else:
-                                    # Extract dict values that look like player dicts
+                                    # The Barafranca users API gives family hierarchy, not players
+                                    # Skip this and rely on detail workers for now
+                                    print(f"[LIST_WORKER] ⚠️ Users API returns family data, not player list")
+                                    print(f"[LIST_WORKER] ℹ️ Relying on detective targets for player data")
                                     player_list = []
-                                    for key, value in container.items():
-                                        if isinstance(value, dict) and ('user_id' in value or 'id' in value):
-                                            player_list.append(value)
-                                        elif isinstance(value, list):
-                                            player_list.extend(value)
                             else:
                                 player_list = []
 
