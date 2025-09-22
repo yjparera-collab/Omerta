@@ -707,8 +707,8 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                             # Check if we already have detailed data for this player
                                             existing_cache = data_manager.db.player_cache.find_one({"username": username})
                                             
-                                            # Normalize to unified structure used by UI
-                                            normalized = {
+                                            # Basic list data that can be updated
+                                            list_data = {
                                                 "id": str(user_id) if user_id else None,
                                                 "user_id": str(user_id) if user_id else None,
                                                 "uname": username,
@@ -718,24 +718,48 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                                 "position": user.get('position'),
                                                 "status": user.get('status'),
                                                 "f_name": user.get('f_name') or (user.get('family', {}) or {}).get('name'),
+                                                "f_id": user.get('f_id'),
+                                                "f_isCapo": user.get('f_isCapo'),
+                                                "version": user.get('version')
                                             }
                                             
-                                            # CRITICAL: If we have existing detailed data, DON'T overwrite it
+                                            # SMART MERGE: Preserve detailed data, update list data
                                             if existing_cache:
                                                 try:
                                                     existing_data = json.loads(existing_cache.get('data', '{}'))
-                                                    # If existing data has detailed fields (wealth, kills, etc.), preserve them
-                                                    if any(field in existing_data for field in ['wealth', 'kills', 'bullets_shot', 'name']):
-                                                        print(f"[LIST_WORKER] ⚠️ Preserving detailed data for {username}, skipping list update")
-                                                        continue  # Skip this player to preserve detailed data
-                                                except:
-                                                    pass  # If parsing fails, proceed with update
+                                                    
+                                                    # Check if we have detailed data (from individual API calls)
+                                                    detail_fields = ['wealth', 'kills', 'bullets_shot', 'honorpoints', 'honor_points', 
+                                                                   'gc_availability', 'avatar', 'profile', 'name']
+                                                    
+                                                    has_detailed_data = any(field in existing_data for field in detail_fields)
+                                                    
+                                                    if has_detailed_data:
+                                                        # MERGE: Keep detailed data, update list data
+                                                        merged_data = existing_data.copy()  # Start with detailed data
+                                                        
+                                                        # Update only list-compatible fields
+                                                        for key, value in list_data.items():
+                                                            if value is not None:  # Only update non-null values
+                                                                merged_data[key] = value
+                                                        
+                                                        print(f"[LIST_WORKER] 🔄 Merging list data with detailed data for {username}")
+                                                        final_data = merged_data
+                                                    else:
+                                                        # No detailed data, use list data
+                                                        final_data = list_data
+                                                except Exception as e:
+                                                    print(f"[LIST_WORKER] ❌ Merge error for {username}: {e}")
+                                                    final_data = list_data
+                                            else:
+                                                # No existing data, use list data
+                                                final_data = list_data
                                             
-                                            # USERNAME FIRST caching (only if no detailed data exists)
+                                            # USERNAME FIRST caching with smart merge
                                             data_manager.cache_player_data(
                                                 user_id,  # Can be None
                                                 username,  # Primary key
-                                                normalized
+                                                final_data
                                             )
                                             cached_count += 1
                                         except Exception as e:
