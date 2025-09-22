@@ -25,6 +25,12 @@ const Navigation = () => {
       icon: '📊',
       description: 'Combat intelligence'
     },
+    { 
+      path: '/settings', 
+      label: 'System Settings', 
+      icon: '⚙️',
+      description: 'Scraping configuration'
+    },
   ];
 
   const unreadNotifications = notifications.filter(n => !n.is_read).length;
