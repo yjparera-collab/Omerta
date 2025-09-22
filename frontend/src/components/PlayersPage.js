@@ -391,6 +391,29 @@ const PlayersPage = () => {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Position Range</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                placeholder="From"
+                value={positionFromFilter}
+                onChange={(e) => setPositionFromFilter(e.target.value)}
+                className="flex-1 px-3 py-2 bg-slate-700/50 text-white rounded-lg border border-slate-600/50 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm"
+                min="1"
+              />
+              <span className="text-slate-400 text-sm">to</span>
+              <input
+                type="number"
+                placeholder="To"
+                value={positionToFilter}
+                onChange={(e) => setPositionToFilter(e.target.value)}
+                className="flex-1 px-3 py-2 bg-slate-700/50 text-white rounded-lg border border-slate-600/50 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm"
+                min="1"
+              />
+            </div>
+          </div>
+
           <div className="flex items-center space-x-3">
             <input
               type="checkbox"
