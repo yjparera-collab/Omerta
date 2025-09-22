@@ -69,7 +69,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Fix the 'Tracked Players Only' filter functionality and ensure data related to tracked players, including kills and bullet shots, is correctly displayed in the Target Configuration (Families) page. Verify the overall data flow for player tracking from the frontend selection to the backend and scraping service, and back to the frontend display."
+user_problem_statement: "Complete the Settings Integration for dynamic control over scraping service behavior through frontend UI. Implement Settings API endpoints, dynamic intervals in scraping service, and parallel browser tabs functionality."
 
 backend:
   - task: "MongoDB Scraping Service Integration"
