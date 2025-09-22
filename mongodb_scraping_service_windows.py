@@ -775,6 +775,8 @@ def batch_detail_worker(driver, data_manager, priority_queue):
             if data_manager.detective_targets:
                 print(f"[DETAIL_WORKER] Processing {len(data_manager.detective_targets)} detective targets...")
                 
+                updated_players = []  # Track updated players for batch notification
+                
                 for username in list(data_manager.detective_targets):
                     try:
                         url = USER_DETAIL_URL_TEMPLATE.format(username)
@@ -809,8 +811,14 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                                     )
                                     print(f"[DETECTIVE] ✅ Updated {username} (wealth={inner.get('wealth', 'N/A')})")
                                     
-                                    # DON'T notify backend for every single update - causes UI flicker
-                                    # Backend will get updates via regular API calls instead
+                                    # Add to batch notification list
+                                    updated_players.append({
+                                        "username": username, 
+                                        "user_id": str(uid) if uid else None,
+                                        "wealth": inner.get('wealth'),
+                                        "kills": inner.get('kills'),
+                                        "bullets_shot": inner.get('bullets_shot')
+                                    })
                                     
                         else:
                             print(f"[DETECTIVE] ❌ Failed to access {username}")
@@ -821,6 +829,15 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                             
                     except Exception as e:
                         print(f"[DETECTIVE] ❌ Error processing {username}: {e}")
+                
+                # BATCH NOTIFICATION: Send one update after all detective targets are processed
+                if updated_players:
+                    print(f"[DETECTIVE] 📡 Sending batch update for {len(updated_players)} players")
+                    data_manager.notify_backend_list_updated({
+                        "type": "detective_batch_complete",
+                        "updated_players": updated_players,
+                        "count": len(updated_players)
+                    })
                         
             else:
                 print(f"[DETAIL_WORKER] ℹ️ No detective targets configured")
