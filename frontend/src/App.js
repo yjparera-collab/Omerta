@@ -22,6 +22,7 @@ function App() {
               <Route path="/families" element={<FamiliesPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/test-settings" element={<SettingsTest />} />
             </Routes>
           </main>
         </div>
