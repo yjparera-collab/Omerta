@@ -120,6 +120,18 @@ backend:
           agent: "testing"
           comment: "✅ COMPLETE END-TO-END VERIFICATION PASSED: All 4 verification steps successful. Step 1: GET /api/players found Kazuo (ID: 2001) with correct base fields (rank_name: Soldier, position: 3, plating: null). Step 2: GET /api/players/2001 returned all required detailed fields (kills: 15, bullets_shot: {total: 75}, wealth: 4, plating: High, user_id present). Step 3: GET /api/intelligence/tracked-players found Kazuo with real values (kills: 15, shots: 75, wealth: 4, plating: High) - no fake defaults detected. Step 4: WebSocket endpoint accessible. Backend API flow working perfectly. Added Kazuo as test player (ID: 2001) to MongoDB for verification."
 
+  - task: "Settings API Integration"
+    implemented: true
+    working: true
+    file: "/app/backend/intelligence_server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ COMPREHENSIVE SETTINGS API TESTING PASSED: All 8 test scenarios successful. ✅ Direct Scraping Service GET/POST: Both endpoints working correctly on port 5001. ✅ Backend Proxy GET/POST: Proxy endpoints on port 8001 correctly forward requests to scraping service. ✅ MongoDB Persistence: Settings properly saved to scraping_settings collection and persist across service restarts. ✅ Settings Validation: Minimum value enforcement working (intervals ≥10s, tabs 1-10, timeout 10-300s). ✅ Default Settings: Correct defaults returned when no settings exist (list_worker_interval: 3600, detail_worker_interval: 900, parallel_tabs: 5, cloudflare_timeout: 60). ✅ Restart Message: 'Restart scraper for changes to take effect' message included in responses. Fixed missing settings endpoint in container_scraping_service.py. Both direct scraping service calls and backend proxy calls work identically as required."
+
 frontend:
   - task: "Tracked Players Only Filter"
     implemented: true
