@@ -27,9 +27,9 @@ const Navigation = () => {
     },
     { 
       path: '/settings', 
-      label: 'System Settings', 
-      icon: '⚙️',
-      description: 'Scraping configuration'
+      label: 'TEST SETTINGS', 
+      icon: '🔧',
+      description: 'Test configuration'
     },
   ];
 
