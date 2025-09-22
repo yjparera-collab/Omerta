@@ -666,9 +666,9 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                             user_id = user[id_field]
                                             break
                                     
-                                    # Common username field names
-                                    for name_field in ['username', 'name', 'player_name', 'userName', 'playerName', 'uname']:
-                                        if name_field in user:
+                                    # Common username field names - the 'name' field from users API is actually the username
+                                    for name_field in ['username', 'uname', 'player_name', 'userName', 'playerName', 'name']:
+                                        if name_field in user and user[name_field] is not None:
                                             username = user[name_field]
                                             break
                                     
