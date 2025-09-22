@@ -78,6 +78,12 @@ echo.
 echo 🔧 USERNAME-FIRST MODE: All data keyed by username
 echo ✅ Fixed environment variables (no trailing spaces)
 echo.
+echo 🚨 TROUBLESHOOTING:
+echo - If "react-scripts not found": run install_windows_dependencies.bat
+echo - If MongoDB errors: ensure MongoDB is running
+echo - If Cloudflare issues: keep Chrome window open, solve CAPTCHAs
+echo - If no player data: check scraping service logs for 403 errors
+echo.
 
 :monitor
 timeout 10 >nul
