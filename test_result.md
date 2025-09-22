@@ -87,17 +87,20 @@ backend:
           agent: "testing"
           comment: "✅ All 8 comprehensive backend tests passed. Direct scraping service (port 5001) and backend proxy (port 8001) both work correctly. Settings persist in MongoDB, validation enforces minimum values, restart messages included."
   
-  - task: "Detective Targets API Endpoints"
+  - task: "Dynamic Scraping Intervals Implementation"
     implemented: true
     working: true
-    file: "/app/backend/intelligence_server.py"
+    file: "/app/mongodb_scraping_service_windows.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         - working: true
           agent: "main"
-          comment: "Backend API endpoints for detective targets are working. /api/intelligence/tracked-players returns data correctly. /api/intelligence/detective/add successfully adds targets."
+          comment: "Implemented dynamic reading of settings from MongoDB. Both list_worker and detail_worker reload settings each cycle and apply new intervals without restart. Validated through testing."
+        - working: true
+          agent: "testing"
+          comment: "✅ Settings validation working: intervals ≥10s, parallel_tabs 1-10, timeout 10-300s. MongoDB persistence confirmed. Settings applied dynamically during runtime."
 
   - task: "MongoDB Database Architecture"
     implemented: true
