@@ -66,14 +66,28 @@ curl "https://barafranca.com/index.php?module=API&action=user&name=teg"
 
 ### Windows Setup (PRODUCTION)
 ```bash
-# 1. Install dependencies
-pip install -r backend/requirements.txt
-cd frontend && npm install
+# 1. First time setup - Install all dependencies
+install_windows_dependencies.bat
 
 # 2. Start all services
 start_omerta_windows.bat
+# OR use yarn version (recommended)
+start_omerta_windows_yarn.bat
 
 # 3. IMPORTANT: Keep Chrome window open and solve CAPTCHAs
+```
+
+### Common Issues & Fixes
+**"'react-scripts' is not recognized"**:
+```bash
+# Run the dependency installer
+install_windows_dependencies.bat
+
+# Or manually in frontend folder:
+cd frontend
+npm install
+# OR
+yarn install
 ```
 
 ### Container Setup (DEMO ONLY)
