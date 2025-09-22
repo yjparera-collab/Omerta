@@ -102,17 +102,17 @@ backend:
           agent: "testing"
           comment: "✅ Settings validation working: intervals ≥10s, parallel_tabs 1-10, timeout 10-300s. MongoDB persistence confirmed. Settings applied dynamically during runtime."
 
-  - task: "MongoDB Database Architecture"
+  - task: "Parallel Browser Tabs Implementation"
     implemented: true
     working: true
-    file: "/app/mongodb_scraping_service.py"
+    file: "/app/mongodb_scraping_service_windows.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         - working: true
           agent: "main"
-          comment: "Fixed architecture mismatch by converting from SQLite to MongoDB. All services now use the same MongoDB database. Collections created: detective_targets, player_cache, intelligence_notifications."
+          comment: "Implemented parallel_detail_worker with configurable number of browser tabs (1-10). Creates multiple browser instances for concurrent scraping of detective targets. Dynamic settings reload ensures tab count can be adjusted via UI."
 
   - task: "Kazuo Player End-to-End Verification"
     implemented: true
