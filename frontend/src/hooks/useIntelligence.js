@@ -186,6 +186,17 @@ export const IntelligenceProvider = ({ children }) => {
     }
   }, [apiCall]);
 
+  const removeDetectiveTargets = useCallback(async (usernames) => {
+    const response = await apiCall('/api/intelligence/detective/remove', {
+      method: 'POST',
+      body: JSON.stringify({ usernames }),
+    });
+    if (response) {
+      await fetchTrackedPlayers();
+    }
+    return response;
+  }, [apiCall, fetchTrackedPlayers]);
+
   const addDetectiveTargets = useCallback(async (usernames) => {
     try {
       await apiCall('/intelligence/detective/add', {
