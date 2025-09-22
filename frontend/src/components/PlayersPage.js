@@ -23,52 +23,38 @@ const PlayersPage = () => {
     return Number.isFinite(n) ? n : undefined;
   };
 
-  // Load player details for wealth/kills/shots display - USERNAME FIRST
+  // Load player details ONLY for tracked players (detective targets) - USERNAME FIRST
   useEffect(() => {
-    const loadPlayerDetails = async () => {
+    const loadTrackedPlayerDetails = async () => {
+      if (!trackedPlayers || trackedPlayers.length === 0) return;
+      
       const details = {};
-      // Prefetch a reasonable chunk of currently available players to improve hit-rate
-      const prefetchList = players.slice(0, 150);
-      for (const player of prefetchList) {
+      console.log(`Loading details for ${trackedPlayers.length} tracked players...`);
+      
+      for (const trackedPlayer of trackedPlayers) {
         try {
-          // Use username-first approach
-          const detail = await getPlayerDetailsByUsername(player.uname);
-          if (detail) {
-            details[player.uname] = detail; // Key by username
-          }
+          // Use the tracked player data directly - it already has kills, shots, wealth, plating
+          details[trackedPlayer.username] = {
+            kills: trackedPlayer.kills,
+            bullets_shot: { total: trackedPlayer.shots },
+            wealth: trackedPlayer.wealth,
+            plating: trackedPlayer.plating,
+            username: trackedPlayer.username
+          };
+          console.log(`✅ Using tracked data for ${trackedPlayer.username}`);
         } catch (error) {
-          console.error(`Failed to load details for ${player.uname}:`, error);
+          console.error(`Failed to load details for ${trackedPlayer.username}:`, error);
         }
       }
-      if (Object.keys(details).length > 0) setPlayerDetails(prev => ({ ...prev, ...details }));
-    };
-
-    if (players.length > 0) {
-      loadPlayerDetails();
-    }
-  }, [players, getPlayerDetailsByUsername]);
-
-  // Ensure detective targets (tracked players) always have details loaded - USERNAME FIRST
-  useEffect(() => {
-    const loadTrackedDetails = async () => {
-      const updates = {};
-      for (const tp of trackedPlayers || []) {
-        const p = players.find(pp => pp.uname === tp.username);
-        if (p && !playerDetails[p.uname]) { // Use username as key
-          try {
-            const detail = await getPlayerDetailsByUsername(p.uname);
-            if (detail) updates[p.uname] = detail; // Key by username
-          } catch (e) {
-            console.warn('Failed to get tracked player detail', tp.username, e);
-          }
-        }
+      
+      if (Object.keys(details).length > 0) {
+        setPlayerDetails(prev => ({ ...prev, ...details }));
+        console.log(`Loaded details for ${Object.keys(details).length} tracked players`);
       }
-      if (Object.keys(updates).length > 0) setPlayerDetails(prev => ({ ...prev, ...updates }));
     };
-    if (trackedPlayers && trackedPlayers.length > 0 && players.length > 0) {
-      loadTrackedDetails();
-    }
-  }, [trackedPlayers, players, playerDetails, getPlayerDetailsByUsername]);
+
+    loadTrackedPlayerDetails();
+  }, [trackedPlayers]);
 
   // Get unique families and ranks for filters
   const families = useMemo(() => {
