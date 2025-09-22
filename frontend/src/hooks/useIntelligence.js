@@ -258,6 +258,7 @@ export const IntelligenceProvider = ({ children }) => {
     removeDetectiveTargets,
     getPlayerDetails,
     getPlayerDetailsByUsername,
+    apiCall,
     isConnected: systemStatus.connected,
   };
 
