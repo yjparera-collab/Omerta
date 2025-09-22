@@ -1028,6 +1028,143 @@ def batch_detail_worker(driver, data_manager, priority_queue):
         print(f"[DETAIL_WORKER] ⏳ Next batch in 90 seconds")
         time.sleep(90)  # Longer interval for stealth
 
+def parallel_detail_worker(data_manager):
+    """Parallel detail worker using multiple browser tabs"""
+    drivers = []
+    
+    try:
+        settings = data_manager.get_settings()
+        parallel_tabs = settings.get('parallel_tabs', 5)
+        detail_interval = settings.get('detail_worker_interval', 900)
+        
+        print(f"[PARALLEL_WORKER] Starting with {parallel_tabs} tabs, interval: {detail_interval}s")
+        
+        # Create multiple browser instances
+        for i in range(parallel_tabs):
+            try:
+                driver = create_compatible_browser()
+                if driver:
+                    drivers.append(driver)
+                    print(f"[PARALLEL_WORKER] Tab {i+1} ready")
+            except Exception as e:
+                print(f"[PARALLEL_WORKER] Failed to create tab {i+1}: {e}")
+        
+        if not drivers:
+            print("[PARALLEL_WORKER] ❌ No browser tabs available")
+            return
+            
+        while True:
+            try:
+                # Reload settings each cycle
+                settings = data_manager.get_settings()
+                detail_interval = settings.get('detail_worker_interval', 900)
+                
+                targets = list(data_manager.detective_targets)
+                if not targets:
+                    print("[PARALLEL_WORKER] ℹ️ No detective targets configured")
+                    time.sleep(detail_interval)
+                    continue
+                
+                print(f"[PARALLEL_WORKER] Processing {len(targets)} targets with {len(drivers)} tabs")
+                
+                # Split targets among available drivers
+                updated_players = []
+                targets_per_driver = max(1, len(targets) // len(drivers))
+                
+                def process_targets(driver, target_list, driver_id):
+                    """Process targets for a specific driver"""
+                    driver_updates = []
+                    for username in target_list:
+                        try:
+                            url = USER_DETAIL_URL_TEMPLATE.format(username)
+                            print(f"[TAB-{driver_id}] 🔍 Getting {username}...")
+                            
+                            if smart_cloudflare_handler(driver, url, f"TAB-{driver_id}", timeout=settings.get('cloudflare_timeout', 60)):
+                                time.sleep(1)
+                                page_source = driver.page_source
+                                soup = BeautifulSoup(page_source, 'html.parser')
+                                
+                                if soup.text.strip().startswith('{'):
+                                    user_data = json.loads(soup.text.strip())
+                                    
+                                    if isinstance(user_data, dict):
+                                        inner = user_data.get('data', user_data)
+                                        
+                                        uid = user_data.get('user_id') or inner.get('user_id')
+                                        if not uid:
+                                            uid = data_manager.get_user_id_by_username(username)
+                                            if uid:
+                                                inner['user_id'] = uid
+                                        
+                                        data_manager.cache_player_data(uid, username, inner)
+                                        print(f"[TAB-{driver_id}] ✅ Updated {username} (wealth={inner.get('wealth', 'N/A')})")
+                                        
+                                        driver_updates.append({
+                                            "username": username,
+                                            "user_id": str(uid) if uid else None,
+                                            "wealth": inner.get('wealth'),
+                                            "kills": inner.get('kills'),
+                                            "bullets_shot": inner.get('bullets_shot')
+                                        })
+                            else:
+                                print(f"[TAB-{driver_id}] ❌ Failed to access {username}")
+                            
+                            # Small delay between requests
+                            time.sleep(random.uniform(2, 4))
+                            
+                        except Exception as e:
+                            print(f"[TAB-{driver_id}] ❌ Error processing {username}: {e}")
+                    
+                    return driver_updates
+                
+                # Process targets in parallel using threads
+                from concurrent.futures import ThreadPoolExecutor
+                
+                with ThreadPoolExecutor(max_workers=len(drivers)) as executor:
+                    futures = []
+                    
+                    for i, driver in enumerate(drivers):
+                        start_idx = i * targets_per_driver
+                        end_idx = start_idx + targets_per_driver if i < len(drivers) - 1 else len(targets)
+                        target_batch = targets[start_idx:end_idx]
+                        
+                        if target_batch:
+                            future = executor.submit(process_targets, driver, target_batch, i+1)
+                            futures.append(future)
+                    
+                    # Collect results
+                    for future in futures:
+                        try:
+                            batch_results = future.result(timeout=300)  # 5 min timeout
+                            updated_players.extend(batch_results)
+                        except Exception as e:
+                            print(f"[PARALLEL_WORKER] ❌ Batch error: {e}")
+                
+                # Send batch notification
+                if updated_players:
+                    print(f"[PARALLEL_WORKER] 📡 Batch complete: {len(updated_players)} players updated")
+                    data_manager.notify_backend_list_updated({
+                        "type": "parallel_batch_complete",
+                        "updated_players": updated_players,
+                        "count": len(updated_players),
+                        "tabs_used": len(drivers)
+                    })
+                    
+            except Exception as e:
+                print(f"[PARALLEL_WORKER] ❌ Cycle error: {e}")
+            
+            print(f"[PARALLEL_WORKER] ⏳ Next batch in {detail_interval} seconds")
+            time.sleep(detail_interval)
+            
+    finally:
+        # Cleanup drivers
+        for i, driver in enumerate(drivers):
+            try:
+                driver.quit()
+                print(f"[PARALLEL_WORKER] Tab {i+1} closed")
+            except:
+                pass
+
 # --- MAIN EXECUTION ---
 if __name__ == '__main__':
     setup_complete = threading.Event()
