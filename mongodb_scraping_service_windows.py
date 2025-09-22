@@ -752,9 +752,9 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                         if failed_count <= 3:  # Only show first few failures
                                             print(f"[LIST_WORKER] ⚠️ No username found in player keys: {list(user.keys())}")
                             
-                            print(f"[LIST_WORKER] 💾 Cached {cached_count} players, {failed_count} failed")
+                            print(f"[LIST_WORKER] 💾 Cached {cached_count} players")
                         else:
-                            print(f"[LIST_WORKER] ❌ No valid player data found")
+                            print("[LIST_WORKER] ❌ No valid player data")
                             
                 except json.JSONDecodeError as e:
                     print(f"[LIST_WORKER] ❌ Failed to parse JSON: {e}")
