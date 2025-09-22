@@ -704,7 +704,10 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                     # USERNAME FIRST: Require username, user_id optional
                                     if username:
                                         try:
-                                            # Normalize to unified structure used by UI: id/uname/rank/plating/position
+                                            # Check if we already have detailed data for this player
+                                            existing_cache = data_manager.db.player_cache.find_one({"username": username})
+                                            
+                                            # Normalize to unified structure used by UI
                                             normalized = {
                                                 "id": str(user_id) if user_id else None,
                                                 "user_id": str(user_id) if user_id else None,
@@ -716,7 +719,19 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                                 "status": user.get('status'),
                                                 "f_name": user.get('f_name') or (user.get('family', {}) or {}).get('name'),
                                             }
-                                            # USERNAME FIRST caching
+                                            
+                                            # CRITICAL: If we have existing detailed data, DON'T overwrite it
+                                            if existing_cache:
+                                                try:
+                                                    existing_data = json.loads(existing_cache.get('data', '{}'))
+                                                    # If existing data has detailed fields (wealth, kills, etc.), preserve them
+                                                    if any(field in existing_data for field in ['wealth', 'kills', 'bullets_shot', 'name']):
+                                                        print(f"[LIST_WORKER] ⚠️ Preserving detailed data for {username}, skipping list update")
+                                                        continue  # Skip this player to preserve detailed data
+                                                except:
+                                                    pass  # If parsing fails, proceed with update
+                                            
+                                            # USERNAME FIRST caching (only if no detailed data exists)
                                             data_manager.cache_player_data(
                                                 user_id,  # Can be None
                                                 username,  # Primary key
