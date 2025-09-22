@@ -23,36 +23,51 @@ const PlayersPage = () => {
     return Number.isFinite(n) ? n : undefined;
   };
 
-  // Load player details ONLY for tracked players (detective targets) - USERNAME FIRST
+  // DEBUG: Load tracked player details with extensive logging
   useEffect(() => {
     const loadTrackedPlayerDetails = async () => {
-      if (!trackedPlayers || trackedPlayers.length === 0) return;
+      console.log('🔍 DEBUG: Starting loadTrackedPlayerDetails');
+      console.log('🔍 DEBUG: trackedPlayers:', trackedPlayers);
+      
+      if (!trackedPlayers || trackedPlayers.length === 0) {
+        console.log('❌ DEBUG: No tracked players found');
+        return;
+      }
       
       const details = {};
-      console.log(`Loading details for ${trackedPlayers.length} tracked players...`);
+      console.log(`🔍 DEBUG: Processing ${trackedPlayers.length} tracked players...`);
       
       for (const trackedPlayer of trackedPlayers) {
-        try {
-          // Use the tracked player data directly - it already has kills, shots, wealth, plating
+        console.log('🔍 DEBUG: Processing tracked player:', trackedPlayer);
+        
+        if (trackedPlayer.username) {
           details[trackedPlayer.username] = {
-            kills: trackedPlayer.kills,
-            bullets_shot: { total: trackedPlayer.shots },
-            wealth: trackedPlayer.wealth,
-            plating: trackedPlayer.plating,
-            username: trackedPlayer.username
+            kills: trackedPlayer.kills || 'NO_KILLS_DATA',
+            bullets_shot: { total: trackedPlayer.shots || 'NO_SHOTS_DATA' },
+            wealth: trackedPlayer.wealth || 'NO_WEALTH_DATA',
+            plating: trackedPlayer.plating || 'NO_PLATING_DATA',
+            username: trackedPlayer.username,
+            debug: 'LOADED_FROM_TRACKED_DATA'
           };
-          console.log(`✅ Using tracked data for ${trackedPlayer.username}`);
-        } catch (error) {
-          console.error(`Failed to load details for ${trackedPlayer.username}:`, error);
+          console.log(`✅ DEBUG: Added details for ${trackedPlayer.username}:`, details[trackedPlayer.username]);
         }
       }
       
+      console.log('🔍 DEBUG: Final details object:', details);
+      
       if (Object.keys(details).length > 0) {
-        setPlayerDetails(prev => ({ ...prev, ...details }));
-        console.log(`Loaded details for ${Object.keys(details).length} tracked players`);
+        setPlayerDetails(prev => {
+          const updated = { ...prev, ...details };
+          console.log('🔍 DEBUG: Updated playerDetails:', updated);
+          return updated;
+        });
+        console.log(`✅ DEBUG: Set details for ${Object.keys(details).length} players`);
+      } else {
+        console.log('❌ DEBUG: No details to set');
       }
     };
 
+    console.log('🔍 DEBUG: useEffect triggered, trackedPlayers:', trackedPlayers);
     loadTrackedPlayerDetails();
   }, [trackedPlayers]);
 
