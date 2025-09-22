@@ -653,12 +653,6 @@ def smart_list_worker(driver, data_manager, priority_queue):
                             cached_count = 0
                             failed_count = 0
                             
-                            # Debug: Check first player structure
-                            if len(player_list) > 0:
-                                first_player = player_list[0]
-                                print(f"[LIST_WORKER] 🔍 First player keys: {list(first_player.keys()) if isinstance(first_player, dict) else 'Not a dict'}")
-                                print(f"[LIST_WORKER] 🔍 First player sample: {str(first_player)[:200]}...")
-                            
                             for user in player_list:
                                 if isinstance(user, dict):
                                     # Try different ID field names
