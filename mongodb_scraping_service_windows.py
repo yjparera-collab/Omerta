@@ -772,12 +772,12 @@ def batch_detail_worker(driver, data_manager, priority_queue):
     while True:
         try:
             if data_manager.detective_targets:
-                print(f"\n[DETAIL_WORKER] Processing {len(data_manager.detective_targets)} detective targets...")
+                print(f"[DETAIL_WORKER] Processing {len(data_manager.detective_targets)} detective targets...")
                 
                 for username in list(data_manager.detective_targets):
                     try:
                         url = USER_DETAIL_URL_TEMPLATE.format(username)
-                        print(f"[DETAIL_WORKER] Getting {username}...")
+                        print(f"[DETECTIVE] 🔍 Getting {username}...")
                         
                         # Use improved Cloudflare handler
                         if smart_cloudflare_handler(driver, url, worker_name="DETAIL_WORKER", timeout=30):
@@ -806,7 +806,7 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                                         username,   # PRIMARY KEY
                                         inner
                                     )
-                                    print(f"[DETAIL_WORKER] ✅ Updated data for {username} (id={uid})")
+                                    print(f"[DETECTIVE] ✅ Updated {username} (wealth={inner.get('wealth', 'N/A')})")
                                     
                                     # Notify backend for real-time updates
                                     data_manager.notify_backend_list_updated({
@@ -815,14 +815,14 @@ def batch_detail_worker(driver, data_manager, priority_queue):
                                     })
                                     
                         else:
-                            print(f"[DETAIL_WORKER] ❌ Failed to access {username}")
+                            print(f"[DETECTIVE] ❌ Failed to access {username}")
                         
                         # Random delay between requests to avoid detection
                         delay = random.uniform(3, 6)
                         time.sleep(delay)
                             
                     except Exception as e:
-                        print(f"[DETAIL_WORKER] ❌ Error processing {username}: {e}")
+                        print(f"[DETECTIVE] ❌ Error processing {username}: {e}")
                         
             else:
                 print(f"[DETAIL_WORKER] ℹ️ No detective targets configured")
