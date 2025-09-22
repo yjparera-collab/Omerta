@@ -255,6 +255,7 @@ export const IntelligenceProvider = ({ children }) => {
     fetchPlayers,
     setFamilyTargets,
     addDetectiveTargets,
+    removeDetectiveTargets,
     getPlayerDetails,
     getPlayerDetailsByUsername,
     isConnected: systemStatus.connected,
