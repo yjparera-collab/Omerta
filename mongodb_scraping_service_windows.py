@@ -541,7 +541,71 @@ def get_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/scraping/debug-info')
+@app.route('/api/scraping/settings', methods=['GET', 'POST'])
+def scraping_settings():
+    """Get or update scraping settings"""
+    try:
+        if request.method == 'GET':
+            # Get current settings from database
+            settings_doc = data_manager.db.scraping_settings.find_one({"type": "intervals"})
+            
+            if settings_doc:
+                return jsonify({
+                    "settings": settings_doc.get('settings', {}),
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+            else:
+                # Return default settings
+                default_settings = {
+                    "list_worker_interval": 3600,  # 1 hour
+                    "detail_worker_interval": 900,  # 15 minutes
+                    "parallel_tabs": 5,
+                    "cloudflare_timeout": 60
+                }
+                return jsonify({
+                    "settings": default_settings,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+        
+        elif request.method == 'POST':
+            # Update settings
+            data = request.get_json()
+            settings = data.get('settings', data)  # Handle both wrapped and direct formats
+            
+            # Validate settings
+            if not isinstance(settings, dict):
+                return jsonify({"error": "Invalid settings format"}), 400
+                
+            # Ensure minimum values for safety
+            settings['list_worker_interval'] = max(10, settings.get('list_worker_interval', 3600))
+            settings['detail_worker_interval'] = max(10, settings.get('detail_worker_interval', 900))
+            settings['parallel_tabs'] = max(1, min(10, settings.get('parallel_tabs', 5)))
+            settings['cloudflare_timeout'] = max(10, min(300, settings.get('cloudflare_timeout', 60)))
+            
+            # Save to database
+            data_manager.db.scraping_settings.update_one(
+                {"type": "intervals"},
+                {
+                    "$set": {
+                        "type": "intervals",
+                        "settings": settings,
+                        "updated_at": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
+            
+            print(f"[SETTINGS] Updated: {settings}")
+            
+            return jsonify({
+                "message": "Settings updated successfully",
+                "settings": settings,
+                "note": "Restart scraper for changes to take effect",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 def get_debug_info():
     """Debug endpoint to understand what's happening"""
     try:
