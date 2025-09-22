@@ -289,9 +289,32 @@ class IntelligenceDataManager:
                     existing_is_detailed = any(field in existing_data for field in ['wealth', 'kills', 'bullets_shot', 'honorpoints', 'avatar', 'profile'])
                     
                     if new_is_detailed:
-                        # New data is detailed - update everything
-                        merged_data = data.copy()
-                        # Preserve username consistency
+                        # New data is detailed - merge with existing basic data
+                        merged_data = existing_data.copy()  # Start with existing (has rank_name, etc.)
+                        
+                        # Add detailed fields from new data
+                        detail_fields = ['wealth', 'kills', 'bullets_shot', 'honorpoints', 'honor_points', 
+                                       'gc_availability', 'avatar', 'profile', 'name']
+                        for field in detail_fields:
+                            if field in data and data[field] is not None:
+                                merged_data[field] = data[field]
+                        
+                        # Update compatible fields from detailed data
+                        compatible_updates = {
+                            'status': data.get('status'),
+                            'plating': data.get('plating'), 
+                            'position': data.get('position')
+                        }
+                        
+                        for field, value in compatible_updates.items():
+                            if value is not None:
+                                merged_data[field] = value
+                        
+                        # Handle rank field mapping (API returns 'rank', we need 'rank_name')
+                        if 'rank' in data and data['rank'] and not merged_data.get('rank_name'):
+                            merged_data['rank_name'] = data['rank']
+                        
+                        # Always preserve username consistency
                         merged_data['username'] = username_str
                         merged_data['uname'] = username_str
                         if user_id_str:
