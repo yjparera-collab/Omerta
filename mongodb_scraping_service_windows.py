@@ -762,15 +762,12 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                     # USERNAME FIRST: Require username, user_id optional
                                     if username:
                                         try:
-                                            # Check if we already have detailed data for this player
-                                            existing_cache = data_manager.db.player_cache.find_one({"username": username})
-                                            
-                                            # Basic list data that can be updated
+                                            # Basic list data - let smart cache handle merging
                                             list_data = {
                                                 "id": str(user_id) if user_id else None,
                                                 "user_id": str(user_id) if user_id else None,
                                                 "uname": username,
-                                                "username": username,  # Ensure both keys
+                                                "username": username,
                                                 "rank_name": user.get('rank_name') or user.get('rank'),
                                                 "plating": user.get('plating'),
                                                 "position": user.get('position'),
@@ -781,52 +778,10 @@ def smart_list_worker(driver, data_manager, priority_queue):
                                                 "version": user.get('version')
                                             }
                                             
-                                            # SMART MERGE: Preserve detailed data, update list data
-                                            if existing_cache:
-                                                try:
-                                                    existing_data = json.loads(existing_cache.get('data', '{}'))
-                                                    
-                                                    # Check if we have detailed data (from individual API calls)
-                                                    detail_fields = ['wealth', 'kills', 'bullets_shot', 'honorpoints', 'honor_points', 
-                                                                   'gc_availability', 'avatar', 'profile', 'name']
-                                                    
-                                                    has_detailed_data = any(field in existing_data for field in detail_fields)
-                                                    
-                                                    if has_detailed_data:
-                                                        # MERGE: Keep detailed data, update list data
-                                                        merged_data = existing_data.copy()  # Start with detailed data
-                                                        
-                                                        # Update only list-compatible fields (preserve username!)
-                                                        list_fields = ['rank_name', 'plating', 'position', 'status', 'f_name', 'f_id', 'f_isCapo', 'version']
-                                                        for field in list_fields:
-                                                            if field in list_data and list_data[field] is not None:
-                                                                merged_data[field] = list_data[field]
-                                                        
-                                                        # CRITICAL: Always preserve username and user_id
-                                                        merged_data['username'] = username
-                                                        merged_data['uname'] = username
-                                                        if user_id:
-                                                            merged_data['user_id'] = str(user_id)
-                                                            merged_data['id'] = str(user_id)
-                                                        
-                                                        final_data = merged_data
-                                                    else:
-                                                        # No detailed data, use list data
-                                                        final_data = list_data
-                                                except Exception as e:
-                                                    print(f"[LIST_WORKER] ❌ Merge error for {username}: {e}")
-                                                    final_data = list_data
-                                            else:
-                                                # No existing data, use list data
-                                                final_data = list_data
-                                            
-                                            # USERNAME FIRST caching with smart merge
-                                            data_manager.cache_player_data(
-                                                user_id,  # Can be None
-                                                username,  # Primary key
-                                                final_data
-                                            )
-                                            cached_count += 1
+                                            # Let smart cache_player_data handle all merging logic
+                                            if data_manager.cache_player_data(user_id, username, list_data):
+                                                cached_count += 1
+                                                
                                         except Exception as e:
                                             print(f"[LIST_WORKER] ❌ Cache error for {username}: {e}")
                                             failed_count += 1
