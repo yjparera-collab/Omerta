@@ -1199,7 +1199,7 @@ if __name__ == '__main__':
         list_thread.daemon = True
         list_thread.start()
 
-        batch_thread = threading.Thread(target=batch_detail_worker, args=(driver, data_manager, priority_queue))
+        batch_thread = threading.Thread(target=parallel_detail_worker, args=(data_manager,))
         batch_thread.daemon = True
         batch_thread.start()
 
