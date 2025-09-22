@@ -20,6 +20,7 @@ function App() {
               <Route path="/players" element={<PlayersPage />} />
               <Route path="/families" element={<FamiliesPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </main>
         </div>
