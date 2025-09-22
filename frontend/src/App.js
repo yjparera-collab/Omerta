@@ -4,6 +4,7 @@ import './App.css';
 import PlayersPage from './components/PlayersPage';
 import FamiliesPage from './components/FamiliesPage';
 import AnalyticsPage from './components/AnalyticsPage';
+import SettingsPage from './components/SettingsPage';
 import Navigation from './components/Navigation';
 import { IntelligenceProvider } from './hooks/useIntelligence';
 
