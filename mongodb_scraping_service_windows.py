@@ -576,7 +576,41 @@ def get_detective_targets():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/scraping/detective/add', methods=['POST'])
+@app.route('/api/scraping/detective/remove', methods=['POST'])
+def remove_detective_targets():
+    """Remove detective targets"""
+    try:
+        data = request.get_json()
+        usernames = data.get('usernames', [])
+        
+        if not usernames:
+            return jsonify({"error": "No usernames provided"}), 400
+            
+        removed_count = 0
+        for username in usernames:
+            try:
+                result = data_manager.db.detective_targets.update_one(
+                    {"username": username},
+                    {"$set": {"is_active": False}}
+                )
+                if result.modified_count > 0:
+                    data_manager.detective_targets.discard(username)  # Remove from memory set
+                    removed_count += 1
+                    print(f"[TARGET] Removed detective target: {username}")
+            except Exception as e:
+                print(f"[ERROR] Removing detective target {username}: {e}")
+        
+        # Reload targets from database
+        data_manager.load_detective_targets()
+        
+        return jsonify({
+            "message": f"Removed {removed_count} detective targets",
+            "removed": removed_count,
+            "total_targets": len(data_manager.detective_targets),
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 def add_detective_targets():
     """Add new detective targets"""
     try:
