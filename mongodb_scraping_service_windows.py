@@ -180,30 +180,22 @@ class IntelligenceDataManager:
             
             for target in targets:
                 username = target['username']
-                print(f"[DEBUG] Processing detective target: {username}")
                 
                 # Get latest cached data for this target BY USERNAME
                 cached_data = self.db.player_cache.find_one({"username": username})
                 
                 player_info = {
                     "username": username,
-                    "player_id": target.get('player_id', ''),  # Keep for legacy, but UI should ignore
+                    "player_id": target.get('player_id', ''),
                     "added_timestamp": target.get('added_timestamp', ''),
                     "last_updated": None
                 }
                 
                 if cached_data:
-                    print(f"[DEBUG] Found cached data for {username}")
                     try:
-                        raw_data_str = cached_data.get('data', '{}')
-                        print(f"[DEBUG] Raw data string for {username}: {raw_data_str[:200]}...")
-                        
-                        raw = json.loads(raw_data_str)
-                        print(f"[DEBUG] Parsed JSON for {username}: {raw}")
-                        
+                        raw = json.loads(cached_data.get('data', '{}'))
                         # Handle the data wrapper - unwrap if present
                         inner = raw.get('data', raw) if isinstance(raw, dict) else raw
-                        print(f"[DEBUG] Inner data for {username}: {inner}")
                         
                         # Extract detailed stats
                         if isinstance(inner, dict):
@@ -219,9 +211,7 @@ class IntelligenceDataManager:
                             else:
                                 shots_total = bs
                             
-                            print(f"[DEBUG] Extracted for {username}: kills={kills}, shots={shots_total}, wealth={wealth}, plating={plating}")
-                            
-                            # Only add data if we have actual values, not fake defaults
+                            # Only add data if we have actual values
                             if kills is not None:
                                 player_info["kills"] = kills
                             if shots_total is not None:
@@ -230,27 +220,17 @@ class IntelligenceDataManager:
                                 player_info["wealth"] = wealth
                             if plating is not None:
                                 player_info["plating"] = plating
-                        else:
-                            print(f"[DEBUG] Inner data is not dict for {username}: {type(inner)}")
                             
                         player_info["last_updated"] = cached_data.get('last_updated')
                         
                     except Exception as e:
-                        print(f"[TARGETS] Parse error for {username}: {e}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"[DEBUG] No cached data found for {username}")
+                        print(f"[DETECTIVE] ❌ Parse error for {username}: {e}")
                 
-                print(f"[DEBUG] Final player_info for {username}: {player_info}")
                 result.append(player_info)
             
-            print(f"[DEBUG] Returning {len(result)} detective targets")
             return result
         except Exception as e:
-            print(f"[ERROR] Getting detective targets: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"[DETECTIVE] ❌ Error getting targets: {e}")
             return []
 
     def cache_player_data(self, user_id, username, data):
