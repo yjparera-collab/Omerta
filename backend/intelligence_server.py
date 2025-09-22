@@ -136,11 +136,40 @@ async def root():
     return {"message": "Omerta Intelligence Dashboard API", "status": "active"}
 
 @api_router.get("/players")
-async def get_all_players():
-    result = await call_scraping_service("/api/scraping/players")
-    if "error" in result:
-        raise HTTPException(status_code=503, detail="Scraping service unavailable")
-    return result
+async def get_players():
+    """Get all cached players directly from MongoDB"""
+    try:
+        # Direct MongoDB access for better performance and consistency
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        client = MongoClient(mongo_url)
+        db = client[os.environ.get('DB_NAME', 'omerta_intelligence')]
+        
+        # Get all cached players
+        players = list(
+            db.player_cache
+            .find({}, {"_id": 0})
+            .sort("last_updated", -1)
+            .limit(2000)
+        )
+        
+        # Parse player data
+        parsed_players = []
+        for player in players:
+            try:
+                player_data = json.loads(player.get('data', '{}'))
+                parsed_players.append(player_data)
+            except:
+                pass
+        
+        return {
+            "players": parsed_players,
+            "count": len(parsed_players),
+            "source": "mongodb_direct",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        return {"error": f"MongoDB direct access failed: {str(e)}", "players": [], "count": 0}
 
 @api_router.get("/players/{player_id}")
 async def get_player_details(player_id: str):
