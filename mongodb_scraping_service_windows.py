@@ -180,6 +180,8 @@ class IntelligenceDataManager:
             
             for target in targets:
                 username = target['username']
+                print(f"[DEBUG] Processing detective target: {username}")
+                
                 # Get latest cached data for this target BY USERNAME
                 cached_data = self.db.player_cache.find_one({"username": username})
                 
@@ -191,39 +193,64 @@ class IntelligenceDataManager:
                 }
                 
                 if cached_data:
+                    print(f"[DEBUG] Found cached data for {username}")
                     try:
-                        raw = json.loads(cached_data.get('data', '{}'))
+                        raw_data_str = cached_data.get('data', '{}')
+                        print(f"[DEBUG] Raw data string for {username}: {raw_data_str[:200]}...")
+                        
+                        raw = json.loads(raw_data_str)
+                        print(f"[DEBUG] Parsed JSON for {username}: {raw}")
+                        
                         # Handle the data wrapper - unwrap if present
                         inner = raw.get('data', raw) if isinstance(raw, dict) else raw
+                        print(f"[DEBUG] Inner data for {username}: {inner}")
                         
-                        # Normalize bullets_shot total
-                        bs = inner.get('bullets_shot') if isinstance(inner, dict) else None
-                        shots_total = None
-                        if isinstance(bs, dict):
-                            shots_total = bs.get('total')
-                        else:
-                            shots_total = bs
+                        # Extract detailed stats
+                        if isinstance(inner, dict):
+                            kills = inner.get('kills')
+                            wealth = inner.get('wealth') 
+                            plating = inner.get('plating')
                             
-                        # Only add data if we have actual values, not fake defaults
-                        if inner.get('kills') is not None:
-                            player_info["kills"] = inner.get('kills')
-                        if shots_total is not None:
-                            player_info["shots"] = shots_total
-                        if inner.get('wealth') is not None:
-                            player_info["wealth"] = inner.get('wealth')
-                        if inner.get('plating') is not None:
-                            player_info["plating"] = inner.get('plating')
+                            # Handle bullets_shot
+                            bs = inner.get('bullets_shot')
+                            shots_total = None
+                            if isinstance(bs, dict):
+                                shots_total = bs.get('total')
+                            else:
+                                shots_total = bs
+                            
+                            print(f"[DEBUG] Extracted for {username}: kills={kills}, shots={shots_total}, wealth={wealth}, plating={plating}")
+                            
+                            # Only add data if we have actual values, not fake defaults
+                            if kills is not None:
+                                player_info["kills"] = kills
+                            if shots_total is not None:
+                                player_info["shots"] = shots_total
+                            if wealth is not None:
+                                player_info["wealth"] = wealth
+                            if plating is not None:
+                                player_info["plating"] = plating
+                        else:
+                            print(f"[DEBUG] Inner data is not dict for {username}: {type(inner)}")
                             
                         player_info["last_updated"] = cached_data.get('last_updated')
                         
                     except Exception as e:
                         print(f"[TARGETS] Parse error for {username}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"[DEBUG] No cached data found for {username}")
                 
+                print(f"[DEBUG] Final player_info for {username}: {player_info}")
                 result.append(player_info)
             
+            print(f"[DEBUG] Returning {len(result)} detective targets")
             return result
         except Exception as e:
             print(f"[ERROR] Getting detective targets: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def cache_player_data(self, user_id, username, data):
