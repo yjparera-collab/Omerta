@@ -72,17 +72,20 @@
 user_problem_statement: "Complete the Settings Integration for dynamic control over scraping service behavior through frontend UI. Implement Settings API endpoints, dynamic intervals in scraping service, and parallel browser tabs functionality."
 
 backend:
-  - task: "MongoDB Scraping Service Integration"
+  - task: "Settings API Proxy Endpoints"
     implemented: true
     working: true
-    file: "/app/mongodb_scraping_service.py"
+    file: "/app/backend/intelligence_server.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
         - working: true
           agent: "main"
-          comment: "Created MongoDB-based scraping service to replace SQLite version. Service is running and successfully connecting to MongoDB, creating required collections (detective_targets, player_cache, intelligence_notifications). Browser automation working in headless mode."
+          comment: "Added proxy endpoints GET/POST /api/scraping/settings to forward requests to scraping service. Both direct and proxied API calls work identically."
+        - working: true
+          agent: "testing"
+          comment: "✅ All 8 comprehensive backend tests passed. Direct scraping service (port 5001) and backend proxy (port 8001) both work correctly. Settings persist in MongoDB, validation enforces minimum values, restart messages included."
   
   - task: "Detective Targets API Endpoints"
     implemented: true
