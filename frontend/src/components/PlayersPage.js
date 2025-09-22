@@ -8,6 +8,8 @@ const PlayersPage = () => {
   const [nameFilter, setNameFilter] = useState('');
   const [familyFilter, setFamilyFilter] = useState('');
   const [rankFilter, setRankFilter] = useState('');
+  const [positionFromFilter, setPositionFromFilter] = useState('');
+  const [positionToFilter, setPositionToFilter] = useState('');
   const [showDead, setShowDead] = useState(false);
   const [showTrackedOnly, setShowTrackedOnly] = useState(false);
   const [sortField, setSortField] = useState(null); // start unsorted so first click sets ASC explicitly
